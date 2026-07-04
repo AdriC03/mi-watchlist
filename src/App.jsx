@@ -47,53 +47,76 @@ const posterHue = (title) => {
   return h;
 };
 
-// ---------- Componente de tarjeta ----------
-function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
+// ---------- Póster (imagen real con degradado de respaldo) ----------
+function Poster({ item, className }) {
   const hue = posterHue(item.title);
+  const [failed, setFailed] = useState(false);
+  if (item.poster && !failed) {
+    return (
+      <img
+        src={item.poster}
+        alt={item.title}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className={className}
+      />
+    );
+  }
   return (
     <div
-      className="rounded-xl overflow-hidden flex flex-col"
+      className={`${className} flex items-center justify-center`}
+      style={{ background: `linear-gradient(135deg, hsl(${hue},45%,22%), hsl(${(hue + 40) % 360},55%,12%))` }}
+    >
+      <span
+        className="text-6xl font-black select-none"
+        style={{ color: `hsla(${hue},60%,70%,0.22)`, fontFamily: "'Bebas Neue', sans-serif" }}
+      >
+        {(item.title || "?").charAt(0).toUpperCase()}
+      </span>
+    </div>
+  );
+}
+
+// ---------- Componente de tarjeta ----------
+function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
+  return (
+    <div
+      className="group rounded-xl overflow-hidden flex flex-col transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
       style={{ background: "#151a26", border: "1px solid #232b3d" }}
     >
-      <div
-        className="h-20 flex items-end px-4 pb-2 relative"
-        style={{
-          background: `linear-gradient(135deg, hsl(${hue},45%,22%), hsl(${(hue + 40) % 360},55%,12%))`,
-        }}
-      >
-        <span
-          className="absolute right-3 top-2 text-5xl font-black select-none"
-          style={{ color: `hsla(${hue},60%,70%,0.18)`, fontFamily: "'Bebas Neue', sans-serif" }}
-        >
-          {(item.title || "?").charAt(0).toUpperCase()}
-        </span>
+      <div className="relative overflow-hidden" style={{ aspectRatio: "2 / 3" }}>
+        <Poster item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+        <div
+          className="absolute inset-x-0 bottom-0 h-16 pointer-events-none"
+          style={{ background: "linear-gradient(to top, rgba(12,14,20,0.95), transparent)" }}
+        />
         {item.rating && (
           <span
-            className="text-xs font-bold px-2 py-0.5 rounded-full"
+            className="absolute right-2 top-2 text-xs font-bold px-2 py-0.5 rounded-full"
             style={{ background: "#0c0e14", color: ACCENT }}
           >
             ★ {item.rating}
           </span>
         )}
         {watched && (
-          <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900 text-emerald-300">
+          <span className="absolute left-2 top-2 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900 text-emerald-300">
             ✓ Vista
           </span>
         )}
       </div>
 
-      <div className="p-4 flex flex-col gap-2 flex-1">
+      <div className="p-3 flex flex-col gap-1.5 flex-1">
         <h3
-          className="text-lg leading-tight tracking-wide"
+          className="text-base leading-tight tracking-wide"
           style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#f3f4f8", letterSpacing: "0.04em" }}
         >
           {item.title}
         </h3>
         <p className="text-xs" style={{ color: "#8b93a7" }}>
-          {[item.year, item.genre, item.platform].filter(Boolean).join(" · ")}
+          {[item.year, item.genre].filter(Boolean).join(" · ")}
         </p>
         {item.description && (
-          <p className="text-sm flex-1" style={{ color: "#b6bdcf" }}>
+          <p className="text-xs flex-1 line-clamp-3" style={{ color: "#b6bdcf" }}>
             {item.description}
           </p>
         )}
@@ -101,7 +124,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
         <div className="flex gap-2 mt-2">
           <button
             onClick={onSave}
-            className="flex-1 text-sm font-semibold py-1.5 rounded-lg transition-colors"
+            className="flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors"
             style={
               saved
                 ? { background: ACCENT, color: "#1a1408" }
@@ -112,7 +135,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
           </button>
           <button
             onClick={onWatch}
-            className="flex-1 text-sm font-semibold py-1.5 rounded-lg transition-colors"
+            className="flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors"
             style={
               watched
                 ? { background: "#134e3a", color: "#6ee7b7" }
@@ -125,12 +148,84 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
             <button
               onClick={onRemove}
               title="Quitar de la lista"
-              className="text-sm py-1.5 px-3 rounded-lg"
+              className="text-xs py-1.5 px-3 rounded-lg"
               style={{ background: "transparent", color: "#7c8398", border: "1px solid #2b3448" }}
             >
               ✕
             </button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Apartado visual destacado: el Nº1 del momento a toda pantalla ----------
+function Hero({ item, saved, watched, onSave, onWatch }) {
+  if (!item) return null;
+  const bg = item.backdrop || item.poster;
+
+  return (
+    <div className="hero-fade relative rounded-2xl overflow-hidden mb-6" style={{ minHeight: 360 }}>
+      {bg ? (
+        <img src={bg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{ background: `linear-gradient(135deg, hsl(${posterHue(item.title)},45%,18%), #0c0e14)` }}
+        />
+      )}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(8,9,13,0.97) 8%, rgba(8,9,13,0.65) 50%, rgba(8,9,13,0.15) 100%), linear-gradient(to right, rgba(8,9,13,0.55), transparent 60%)",
+        }}
+      />
+      <div className="relative flex flex-col justify-end p-6 sm:p-10" style={{ minHeight: 360 }}>
+        <span
+          className="hero-badge inline-block text-xs font-bold tracking-widest uppercase mb-3 px-3 py-1 rounded-full w-fit"
+          style={{ background: ACCENT, color: "#1a1408" }}
+        >
+          🔥 Nº1 en tendencias ahora mismo
+        </span>
+        <h2
+          className="text-4xl sm:text-6xl mb-2"
+          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", color: "#fff" }}
+        >
+          {item.title}
+        </h2>
+        <p className="text-sm mb-2" style={{ color: "#c7cbe0" }}>
+          {[item.year, item.genre, item.rating && `★ ${item.rating}`].filter(Boolean).join("   ·   ")}
+        </p>
+        {item.description && (
+          <p className="text-sm max-w-2xl mb-5" style={{ color: "#d7dae6" }}>
+            {item.description}
+          </p>
+        )}
+        <div className="flex gap-3">
+          <button
+            onClick={onSave}
+            className="text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+            style={
+              saved
+                ? { background: ACCENT, color: "#1a1408" }
+                : { background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }
+            }
+          >
+            {saved ? "🔖 Guardada" : "🔖 Guardar"}
+          </button>
+          <button
+            onClick={onWatch}
+            className="text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+            style={
+              watched
+                ? { background: "#134e3a", color: "#6ee7b7" }
+                : { background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }
+            }
+          >
+            {watched ? "✓ Ya vista" : "Marcar vista"}
+          </button>
         </div>
       </div>
     </div>
@@ -255,7 +350,7 @@ export default function App() {
   ];
 
   const renderGrid = (items, opts = {}) => (
-    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+    <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}>
       {items.map((it) => {
         const id = itemId(it);
         return (
@@ -281,10 +376,15 @@ export default function App() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
         @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
         .marquee-dot { width:6px; height:6px; border-radius:50%; background:${ACCENT}; opacity:.35; }
-        .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes heroFade { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
+        @keyframes heroBadgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,194,75,0.5); } 50% { box-shadow: 0 0 0 8px rgba(255,194,75,0); } }
+        .hero-fade { animation: heroFade 0.7s ease-out; }
+        .hero-badge { animation: heroBadgePulse 2.2s ease-out infinite; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
 
       {/* Cabecera estilo marquesina */}
-      <header className="px-5 pt-6 pb-4 max-w-6xl mx-auto">
+      <header className="px-5 pt-6 pb-4 max-w-7xl mx-auto">
         <div className="flex items-center gap-2 mb-1">
           {[...Array(14)].map((_, i) => (
             <span key={i} className="marquee-dot" style={{ opacity: i % 2 ? 0.15 : 0.4 }} />
@@ -302,7 +402,7 @@ export default function App() {
       </header>
 
       {/* Pestañas */}
-      <nav className="max-w-6xl mx-auto px-5 flex gap-2 flex-wrap mb-5">
+      <nav className="max-w-7xl mx-auto px-5 flex gap-2 flex-wrap mb-5">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -319,7 +419,7 @@ export default function App() {
         ))}
       </nav>
 
-      <main className="max-w-6xl mx-auto px-5 pb-16">
+      <main className="max-w-7xl mx-auto px-5 pb-16">
         {/* Pestañas de tendencias */}
         {isCatTab && (
           <>
@@ -350,7 +450,18 @@ export default function App() {
               </div>
             )}
 
-            {!loading[tab] && catData?.items?.length > 0 && renderGrid(catData.items)}
+            {!loading[tab] && catData?.items?.length > 0 && (
+              <>
+                <Hero
+                  item={catData.items[0]}
+                  saved={savedIds.has(itemId(catData.items[0]))}
+                  watched={watchedIds.has(itemId(catData.items[0]))}
+                  onSave={() => toggleSave(catData.items[0])}
+                  onWatch={() => toggleWatch(catData.items[0])}
+                />
+                {renderGrid(catData.items.slice(1))}
+              </>
+            )}
           </>
         )}
 
