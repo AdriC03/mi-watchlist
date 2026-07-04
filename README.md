@@ -25,3 +25,5 @@ VITE_TMDB_API_KEY=tu_key_aqui
 El repositorio incluye un workflow de GitHub Actions (`.github/workflows/deploy.yml`) que compila y publica la app automáticamente en cada push a `main`.
 
 Para que las tendencias de películas/series funcionen también en la web publicada, añade tu key como secreto del repositorio: **Settings → Secrets and variables → Actions → New repository secret**, nombre `VITE_TMDB_API_KEY`.
+
+<!-- redeploy trigger -->
