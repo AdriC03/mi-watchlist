@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchTrending } from "./trending.js";
+import DetailModal from "./DetailModal.jsx";
+import AuthModal from "./AuthModal.jsx";
+import { supabase, loadCloudLists, saveCloudLists } from "./supabase.js";
 
 // ---------- Config ----------
 const CATS = [
@@ -12,20 +15,20 @@ const ACCENT = "#FFC24B";
 const ACCENT_DIM = "#8a6a2a";
 
 const STORAGE_LISTS = "watchlist-lists-v1";
-const STORAGE_TRENDS = "watchlist-trends-v1";
+// v2: los items ahora llevan poster/backdrop/tmdbId — invalida cachés antiguas sin imágenes
+const STORAGE_TRENDS = "watchlist-trends-v2";
 
-// Persistencia real en localStorage (se conserva entre sesiones del navegador)
-const storage = {
-  async get(key) {
-    try {
-      return { value: localStorage.getItem(key) };
-    } catch {
-      return { value: null };
+const readLocalLists = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_LISTS);
+    if (raw) {
+      const d = JSON.parse(raw);
+      return { saved: d.saved || [], watched: d.watched || [] };
     }
-  },
-  async set(key, value) {
-    localStorage.setItem(key, value);
-  },
+  } catch {
+    /* sin datos */
+  }
+  return { saved: [], watched: [] };
 };
 
 const itemId = (it) => `${(it.title || "").toLowerCase().trim()}::${it.year || ""}`;
@@ -78,18 +81,26 @@ function Poster({ item, className }) {
 }
 
 // ---------- Componente de tarjeta ----------
-function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
+function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
   return (
     <div
       className="group rounded-xl overflow-hidden flex flex-col transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
       style={{ background: "#151a26", border: "1px solid #232b3d" }}
     >
-      <div className="relative overflow-hidden" style={{ aspectRatio: "2 / 3" }}>
+      <div className="relative overflow-hidden cursor-pointer" style={{ aspectRatio: "2 / 3" }} onClick={onOpen}>
         <Poster item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
         <div
           className="absolute inset-x-0 bottom-0 h-16 pointer-events-none"
           style={{ background: "linear-gradient(to top, rgba(12,14,20,0.95), transparent)" }}
         />
+        <div
+          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ background: "rgba(8,9,13,0.45)" }}
+        >
+          <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: ACCENT, color: "#1a1408" }}>
+            Ver ficha
+          </span>
+        </div>
         {item.rating && (
           <span
             className="absolute right-2 top-2 text-xs font-bold px-2 py-0.5 rounded-full"
@@ -107,8 +118,9 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
 
       <div className="p-3 flex flex-col gap-1.5 flex-1">
         <h3
-          className="text-base leading-tight tracking-wide"
+          className="text-base leading-tight tracking-wide cursor-pointer"
           style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#f3f4f8", letterSpacing: "0.04em" }}
+          onClick={onOpen}
         >
           {item.title}
         </h3>
@@ -161,7 +173,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove }) {
 }
 
 // ---------- Apartado visual destacado: el Nº1 del momento a toda pantalla ----------
-function Hero({ item, saved, watched, onSave, onWatch }) {
+function Hero({ item, saved, watched, onSave, onWatch, onOpen }) {
   if (!item) return null;
   const bg = item.backdrop || item.poster;
 
@@ -190,8 +202,9 @@ function Hero({ item, saved, watched, onSave, onWatch }) {
           🔥 Nº1 en tendencias ahora mismo
         </span>
         <h2
-          className="text-4xl sm:text-6xl mb-2"
+          className="text-4xl sm:text-6xl mb-2 cursor-pointer"
           style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.03em", color: "#fff" }}
+          onClick={onOpen}
         >
           {item.title}
         </h2>
@@ -203,13 +216,20 @@ function Hero({ item, saved, watched, onSave, onWatch }) {
             {item.description}
           </p>
         )}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={onOpen}
+            className="text-sm font-semibold px-5 py-2.5 rounded-lg"
+            style={{ background: ACCENT, color: "#1a1408" }}
+          >
+            Ver ficha completa
+          </button>
           <button
             onClick={onSave}
             className="text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
             style={
               saved
-                ? { background: ACCENT, color: "#1a1408" }
+                ? { background: "rgba(255,194,75,0.25)", color: ACCENT, border: `1px solid ${ACCENT}` }
                 : { background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }
             }
           >
@@ -243,41 +263,83 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualCat, setManualCat] = useState("movies");
+  const [detailItem, setDetailItem] = useState(null);
+  const [session, setSession] = useState(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [syncError, setSyncError] = useState(null);
 
-  // Cargar datos guardados al iniciar
+  // Sesión de Supabase (si está configurado)
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await storage.get(STORAGE_LISTS);
-        if (r?.value) {
-          const d = JSON.parse(r.value);
-          setSaved(d.saved || []);
-          setWatched(d.watched || []);
-        }
-      } catch (e) {
-        /* no hay datos aún */
-      }
-      try {
-        const r = await storage.get(STORAGE_TRENDS);
-        if (r?.value) setTrends(JSON.parse(r.value));
-      } catch (e) {
-        /* no hay caché aún */
-      }
-      setReady(true);
-    })();
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  const persistLists = useCallback(async (nextSaved, nextWatched) => {
+  // Cargar caché de tendencias al iniciar
+  useEffect(() => {
     try {
-      await storage.set(STORAGE_LISTS, JSON.stringify({ saved: nextSaved, watched: nextWatched }));
-    } catch (e) {
-      console.error("No se pudo guardar", e);
+      const raw = localStorage.getItem(STORAGE_TRENDS);
+      if (raw) setTrends(JSON.parse(raw));
+    } catch {
+      /* sin caché */
     }
+    setReady(true);
   }, []);
 
-  const persistTrends = useCallback(async (next) => {
+  // Cargar listas: de la nube si hay sesión, de localStorage si no
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setSyncError(null);
+      if (session?.user && supabase) {
+        try {
+          const cloud = await loadCloudLists(session.user.id);
+          if (cancelled) return;
+          if (cloud) {
+            setSaved(cloud.saved || []);
+            setWatched(cloud.watched || []);
+          } else {
+            // Primera vez con esta cuenta: sube las listas locales como punto de partida
+            const local = readLocalLists();
+            setSaved(local.saved);
+            setWatched(local.watched);
+            await saveCloudLists(session.user.id, local.saved, local.watched);
+          }
+        } catch (e) {
+          if (!cancelled) setSyncError("No se pudieron cargar tus listas de la nube: " + (e.message || e));
+        }
+      } else {
+        const local = readLocalLists();
+        setSaved(local.saved);
+        setWatched(local.watched);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  const persistLists = useCallback(
+    (nextSaved, nextWatched) => {
+      if (session?.user && supabase) {
+        saveCloudLists(session.user.id, nextSaved, nextWatched).catch((e) =>
+          setSyncError("No se pudo guardar en la nube: " + (e.message || e))
+        );
+      } else {
+        try {
+          localStorage.setItem(STORAGE_LISTS, JSON.stringify({ saved: nextSaved, watched: nextWatched }));
+        } catch (e) {
+          console.error("No se pudo guardar", e);
+        }
+      }
+    },
+    [session]
+  );
+
+  const persistTrends = useCallback((next) => {
     try {
-      await storage.set(STORAGE_TRENDS, JSON.stringify(next));
+      localStorage.setItem(STORAGE_TRENDS, JSON.stringify(next));
     } catch (e) {
       console.error("No se pudo guardar la caché", e);
     }
@@ -341,6 +403,10 @@ export default function App() {
     setManualTitle("");
   };
 
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
   const pendingSaved = saved.filter((s) => !watchedIds.has(itemId(s)));
 
   const TABS = [
@@ -361,6 +427,7 @@ export default function App() {
             watched={watchedIds.has(id)}
             onSave={() => toggleSave(it)}
             onWatch={() => toggleWatch(it)}
+            onOpen={() => setDetailItem(it)}
             onRemove={opts.removable ? () => (opts.fromSeen ? toggleWatch(it) : toggleSave(it)) : null}
           />
         );
@@ -390,15 +457,46 @@ export default function App() {
             <span key={i} className="marquee-dot" style={{ opacity: i % 2 ? 0.15 : 0.4 }} />
           ))}
         </div>
-        <h1
-          className="text-4xl sm:text-5xl tracking-widest"
-          style={{ fontFamily: "'Bebas Neue', sans-serif", color: ACCENT }}
-        >
-          MI WATCHLIST
-        </h1>
-        <p className="text-sm" style={{ color: "#8b93a7" }}>
-          Tendencias de cine, series y anime · {saved.length} guardadas · {watched.length} vistas
-        </p>
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <h1
+              className="text-4xl sm:text-5xl tracking-widest"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: ACCENT }}
+            >
+              MI WATCHLIST
+            </h1>
+            <p className="text-sm" style={{ color: "#8b93a7" }}>
+              Tendencias de cine, series y anime · {saved.length} guardadas · {watched.length} vistas
+            </p>
+          </div>
+
+          {supabase &&
+            (session?.user ? (
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xs px-3 py-1.5 rounded-full"
+                  style={{ background: "#151a26", color: "#aab1c4", border: "1px solid #232b3d" }}
+                >
+                  👤 {session.user.email}
+                </span>
+                <button
+                  onClick={logout}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-full"
+                  style={{ background: "transparent", color: "#9aa3b8", border: "1px solid #2b3448" }}
+                >
+                  Salir
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setAuthOpen(true)}
+                className="text-sm font-semibold px-4 py-2 rounded-full"
+                style={{ background: "transparent", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }}
+              >
+                👤 Iniciar sesión
+              </button>
+            ))}
+        </div>
       </header>
 
       {/* Pestañas */}
@@ -420,6 +518,12 @@ export default function App() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-5 pb-16">
+        {syncError && (
+          <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: "#2a1717", color: "#f3b3b3" }}>
+            {syncError}
+          </div>
+        )}
+
         {/* Pestañas de tendencias */}
         {isCatTab && (
           <>
@@ -458,6 +562,7 @@ export default function App() {
                   watched={watchedIds.has(itemId(catData.items[0]))}
                   onSave={() => toggleSave(catData.items[0])}
                   onWatch={() => toggleWatch(catData.items[0])}
+                  onOpen={() => setDetailItem(catData.items[0])}
                 />
                 {renderGrid(catData.items.slice(1))}
               </>
@@ -521,6 +626,21 @@ export default function App() {
             renderGrid(watched, { removable: true, fromSeen: true })
           ))}
       </main>
+
+      {/* Modal de detalle */}
+      {detailItem && (
+        <DetailModal
+          item={detailItem}
+          saved={savedIds.has(itemId(detailItem))}
+          watched={watchedIds.has(itemId(detailItem))}
+          onSave={() => toggleSave(detailItem)}
+          onWatch={() => toggleWatch(detailItem)}
+          onClose={() => setDetailItem(null)}
+        />
+      )}
+
+      {/* Modal de login */}
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );
 }
