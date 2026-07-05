@@ -6,7 +6,8 @@
 
 const TMDB = "https://api.themoviedb.org/3";
 const TMDB_IMG = "https://image.tmdb.org/t/p";
-const ITEMS_PER_CATEGORY = 24;
+const PAGES = [1, 2, 3];
+const ITEMS_PER_CATEGORY = 60;
 
 const MOVIE_GENRES = {
   28: "Acción", 12: "Aventura", 16: "Animación", 35: "Comedia", 80: "Crimen",
@@ -56,7 +57,7 @@ async function fetchTMDBPages(pathAndQuery) {
   }
 
   const pages = await Promise.all(
-    [1, 2].map(async (page) => {
+    PAGES.map(async (page) => {
       const url = `${TMDB}${pathAndQuery}&api_key=${apiKey}&language=es-ES&page=${page}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Error de TMDB (${response.status})`);
@@ -70,6 +71,30 @@ async function fetchTMDBPages(pathAndQuery) {
     seen.add(it.id);
     return true;
   });
+}
+
+// Añade temporadas, nº de episodios y duración media de capítulo a las series.
+// Se hace en paralelo; si alguna ficha falla, esa serie se queda sin esos datos.
+async function enrichTvItems(items) {
+  const apiKey = getTmdbKey();
+  const enriched = await Promise.all(
+    items.map(async (item) => {
+      try {
+        const r = await fetch(`${TMDB}/tv/${item.tmdbId}?api_key=${apiKey}&language=es-ES`);
+        if (!r.ok) return item;
+        const d = await r.json();
+        return {
+          ...item,
+          seasons: d.number_of_seasons || null,
+          episodes: d.number_of_episodes || null,
+          epRuntime: d.last_episode_to_air?.runtime || d.episode_run_time?.[0] || null,
+        };
+      } catch {
+        return item;
+      }
+    })
+  );
+  return enriched;
 }
 
 export async function fetchTrending(catKey) {
@@ -91,5 +116,7 @@ export async function fetchTrending(catKey) {
     throw new Error("Categoría desconocida");
   }
 
-  return results.slice(0, ITEMS_PER_CATEGORY).map((it) => normalizeTMDB(it, kind));
+  let items = results.slice(0, ITEMS_PER_CATEGORY).map((it) => normalizeTMDB(it, kind));
+  if (kind === "tv") items = await enrichTvItems(items);
+  return items;
 }

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { fetchTrending } from "./trending.js";
+import { genreStyle } from "./genres.js";
 import DetailModal from "./DetailModal.jsx";
 import AuthModal from "./AuthModal.jsx";
 import { supabase, loadCloudLists, saveCloudLists } from "./supabase.js";
@@ -15,23 +16,38 @@ const ACCENT = "#FFC24B";
 const ACCENT_DIM = "#8a6a2a";
 
 const STORAGE_LISTS = "watchlist-lists-v1";
-// v2: los items ahora llevan poster/backdrop/tmdbId — invalida cachés antiguas sin imágenes
-const STORAGE_TRENDS = "watchlist-trends-v2";
+// v3: los items de series/anime llevan temporadas/episodios
+const STORAGE_TRENDS = "watchlist-trends-v3";
+
+// GIFs animados (emoji animados de Google, CDN estable)
+const GIF = (cp) => `https://fonts.gstatic.com/s/e/notoemoji/latest/${cp}/512.gif`;
+const GIFS = {
+  bailaora: GIF("1f483"),
+  fantasma: GIF("1f47b"),
+  robot: GIF("1f916"),
+  pulpo: GIF("1f419"),
+  pinguino: GIF("1f427"),
+  fiesta: GIF("1f973"),
+  confeti: GIF("1f38a"),
+  palomitas: GIF("1f37f"),
+};
 
 const readLocalLists = () => {
   try {
     const raw = localStorage.getItem(STORAGE_LISTS);
     if (raw) {
       const d = JSON.parse(raw);
-      return { saved: d.saved || [], watched: d.watched || [] };
+      return { saved: d.saved || [], watched: d.watched || [], following: d.following || [] };
     }
   } catch {
     /* sin datos */
   }
-  return { saved: [], watched: [] };
+  return { saved: [], watched: [], following: [] };
 };
 
 const itemId = (it) => `${(it.title || "").toLowerCase().trim()}::${it.year || ""}`;
+
+const isSeries = (it) => it.kind === "tv" || it.cat === "series" || it.cat === "anime";
 
 const timeAgo = (ts) => {
   if (!ts) return "";
@@ -43,12 +59,51 @@ const timeAgo = (ts) => {
   return `hace ${Math.round(h / 24)} día(s)`;
 };
 
+const fmtTime = (mins) => {
+  if (!mins || mins <= 0) return null;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  if (h && m) return `${h} h ${m} min`;
+  if (h) return `${h} h`;
+  return `${m} min`;
+};
+
 // Colores de "póster" generados a partir del título
 const posterHue = (title) => {
   let h = 0;
   for (let i = 0; i < (title || "").length; i++) h = (h * 31 + title.charCodeAt(i)) % 360;
   return h;
 };
+
+// ---------- Distintivo de temática ----------
+function GenreBadge({ genre, className = "" }) {
+  if (!genre) return null;
+  const gs = genreStyle(genre);
+  return (
+    <span
+      className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${className}`}
+      style={{ background: gs.bg, color: gs.text }}
+    >
+      {gs.emoji} {genre}
+    </span>
+  );
+}
+
+// ---------- GIF bailongo ----------
+function Dancer({ src, size = 36, className = "", style }) {
+  return <img src={src} alt="" width={size} height={size} className={`select-none ${className}`} style={style} loading="lazy" />;
+}
+
+function EmptyState({ gif, children }) {
+  return (
+    <div className="flex flex-col items-center gap-4 py-12">
+      <Dancer src={gif} size={90} />
+      <p className="text-center text-sm max-w-md" style={{ color: "#7c8398" }}>
+        {children}
+      </p>
+    </div>
+  );
+}
 
 // ---------- Póster (imagen real con degradado de respaldo) ----------
 function Poster({ item, className }) {
@@ -81,7 +136,15 @@ function Poster({ item, className }) {
 }
 
 // ---------- Componente de tarjeta ----------
-function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
+function Card({ item, saved, watched, followed, onSave, onWatch, onFollow, onRemove, onOpen }) {
+  const meta = [
+    item.year,
+    item.seasons && `${item.seasons} temporada${item.seasons > 1 ? "s" : ""}`,
+    item.episodes && `${item.episodes} caps`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div
       className="group rounded-xl overflow-hidden flex flex-col transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
@@ -90,7 +153,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
       <div className="relative overflow-hidden cursor-pointer" style={{ aspectRatio: "2 / 3" }} onClick={onOpen}>
         <Poster item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
         <div
-          className="absolute inset-x-0 bottom-0 h-16 pointer-events-none"
+          className="absolute inset-x-0 bottom-0 h-20 pointer-events-none"
           style={{ background: "linear-gradient(to top, rgba(12,14,20,0.95), transparent)" }}
         />
         <div
@@ -114,6 +177,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
             ✓ Vista
           </span>
         )}
+        {item.genre && <GenreBadge genre={item.genre} className="absolute left-2 bottom-2 pointer-events-none" />}
       </div>
 
       <div className="p-3 flex flex-col gap-1.5 flex-1">
@@ -124,16 +188,18 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
         >
           {item.title}
         </h3>
-        <p className="text-xs" style={{ color: "#8b93a7" }}>
-          {[item.year, item.genre].filter(Boolean).join(" · ")}
-        </p>
+        {meta && (
+          <p className="text-xs" style={{ color: "#8b93a7" }}>
+            {meta}
+          </p>
+        )}
         {item.description && (
           <p className="text-xs flex-1 line-clamp-3" style={{ color: "#b6bdcf" }}>
             {item.description}
           </p>
         )}
 
-        <div className="flex gap-2 mt-2">
+        <div className="flex gap-1.5 mt-2">
           <button
             onClick={onSave}
             className="flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors"
@@ -143,7 +209,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
                 : { background: "transparent", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }
             }
           >
-            {saved ? "🔖 Guardada" : "🔖 Guardar"}
+            {saved ? "🔖" : "🔖 Guardar"}
           </button>
           <button
             onClick={onWatch}
@@ -154,13 +220,27 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
                 : { background: "transparent", color: "#9aa3b8", border: "1px solid #2b3448" }
             }
           >
-            {watched ? "✓ Ya vista" : "Marcar vista"}
+            {watched ? "✓" : "✓ Vista"}
           </button>
+          {isSeries(item) && (
+            <button
+              onClick={onFollow}
+              title={followed ? "Dejar de seguir" : "Seguir esta serie (lleva la cuenta de capítulos)"}
+              className="text-xs font-semibold py-1.5 px-2.5 rounded-lg transition-colors"
+              style={
+                followed
+                  ? { background: "#1e3a8a", color: "#93c5fd" }
+                  : { background: "transparent", color: "#93c5fd", border: "1px solid #2b3448" }
+              }
+            >
+              📌
+            </button>
+          )}
           {onRemove && (
             <button
               onClick={onRemove}
               title="Quitar de la lista"
-              className="text-xs py-1.5 px-3 rounded-lg"
+              className="text-xs py-1.5 px-2.5 rounded-lg"
               style={{ background: "transparent", color: "#7c8398", border: "1px solid #2b3448" }}
             >
               ✕
@@ -173,7 +253,7 @@ function Card({ item, saved, watched, onSave, onWatch, onRemove, onOpen }) {
 }
 
 // ---------- Apartado visual destacado: el Nº1 del momento a toda pantalla ----------
-function Hero({ item, saved, watched, onSave, onWatch, onOpen }) {
+function Hero({ item, saved, watched, followed, onSave, onWatch, onFollow, onOpen }) {
   if (!item) return null;
   const bg = item.backdrop || item.poster;
 
@@ -208,9 +288,18 @@ function Hero({ item, saved, watched, onSave, onWatch, onOpen }) {
         >
           {item.title}
         </h2>
-        <p className="text-sm mb-2" style={{ color: "#c7cbe0" }}>
-          {[item.year, item.genre, item.rating && `★ ${item.rating}`].filter(Boolean).join("   ·   ")}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          {item.genre && <GenreBadge genre={item.genre} />}
+          <span className="text-sm" style={{ color: "#c7cbe0" }}>
+            {[
+              item.year,
+              item.seasons && `${item.seasons} temporada${item.seasons > 1 ? "s" : ""}`,
+              item.rating && `★ ${item.rating}`,
+            ]
+              .filter(Boolean)
+              .join("   ·   ")}
+          </span>
+        </div>
         {item.description && (
           <p className="text-sm max-w-2xl mb-5" style={{ color: "#d7dae6" }}>
             {item.description}
@@ -246,6 +335,164 @@ function Hero({ item, saved, watched, onSave, onWatch, onOpen }) {
           >
             {watched ? "✓ Ya vista" : "Marcar vista"}
           </button>
+          {isSeries(item) && (
+            <button
+              onClick={onFollow}
+              className="text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+              style={
+                followed
+                  ? { background: "#1e3a8a", color: "#93c5fd" }
+                  : { background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }
+              }
+            >
+              {followed ? "📌 Siguiendo" : "📌 Seguir"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Fila de "Siguiendo": progreso de capítulos ----------
+function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
+  const total = item.episodes || item.totalEp || null;
+  const ep = Math.max(0, item.ep || 0);
+  const runtime = item.epRuntime || (item.cat === "anime" ? 24 : 45);
+  const remaining = total ? Math.max(0, total - ep) : null;
+  const pct = total ? Math.min(100, Math.round((ep / total) * 100)) : 0;
+  const done = total && ep >= total;
+
+  const setEp = (n) => {
+    const v = Math.max(0, total ? Math.min(total, n) : n);
+    onUpdate({ ep: v });
+  };
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden flex gap-4 p-4"
+      style={{ background: "#151a26", border: `1px solid ${done ? "#134e3a" : "#232b3d"}` }}
+    >
+      <div className="flex-shrink-0 w-20 sm:w-24 cursor-pointer" onClick={onOpen}>
+        <Poster item={item} className="w-full rounded-lg object-cover" />
+      </div>
+
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3
+              className="text-lg leading-tight tracking-wide cursor-pointer truncate"
+              style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#f3f4f8", letterSpacing: "0.04em" }}
+              onClick={onOpen}
+            >
+              {item.title}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {item.genre && <GenreBadge genre={item.genre} />}
+              <span className="text-xs" style={{ color: "#8b93a7" }}>
+                {[
+                  item.seasons && `${item.seasons} temporada${item.seasons > 1 ? "s" : ""}`,
+                  total && `${total} capítulos`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onRemove}
+            title="Dejar de seguir"
+            className="text-xs py-1 px-2 rounded-lg flex-shrink-0"
+            style={{ background: "transparent", color: "#7c8398", border: "1px solid #2b3448" }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Control de capítulo actual */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs" style={{ color: "#8b93a7" }}>
+            Voy por el capítulo
+          </span>
+          <button
+            onClick={() => setEp(ep - 1)}
+            className="w-7 h-7 rounded-lg text-sm font-bold"
+            style={{ background: "#1c2333", color: "#aab1c4", border: "1px solid #2b3448" }}
+          >
+            −
+          </button>
+          <input
+            type="number"
+            min={0}
+            max={total || undefined}
+            value={ep}
+            onChange={(e) => setEp(parseInt(e.target.value || "0", 10))}
+            className="w-16 text-center text-sm font-bold py-1 rounded-lg outline-none"
+            style={{ background: "#0c0e14", border: "1px solid #2b3448", color: ACCENT }}
+          />
+          <button
+            onClick={() => setEp(ep + 1)}
+            className="w-7 h-7 rounded-lg text-sm font-bold"
+            style={{ background: ACCENT, color: "#1a1408" }}
+          >
+            +
+          </button>
+          {total ? (
+            <span className="text-xs" style={{ color: "#8b93a7" }}>
+              de {total}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: "#8b93a7" }}>
+              de
+              <input
+                type="number"
+                min={1}
+                placeholder="¿total?"
+                value={item.totalEp || ""}
+                onChange={(e) => onUpdate({ totalEp: parseInt(e.target.value || "0", 10) || null })}
+                className="w-16 text-center text-sm py-1 rounded-lg outline-none"
+                style={{ background: "#0c0e14", border: "1px solid #2b3448", color: "#e7eaf2" }}
+              />
+              capítulos
+            </span>
+          )}
+        </div>
+
+        {/* Barra de progreso */}
+        {total && (
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#0c0e14" }}>
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${pct}%`, background: done ? "#10b981" : ACCENT }}
+            />
+          </div>
+        )}
+
+        {/* Qué te queda */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          {done ? (
+            <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#6ee7b7" }}>
+              <Dancer src={GIFS.confeti} size={24} /> ¡Serie terminada!
+            </span>
+          ) : total ? (
+            <span className="text-xs" style={{ color: "#aab1c4" }}>
+              Te quedan <b style={{ color: ACCENT }}>{remaining} capítulos</b>
+              {" · "}≈ <b style={{ color: ACCENT }}>{fmtTime(remaining * runtime)}</b> para terminarla ({pct}%)
+            </span>
+          ) : (
+            <span className="text-xs" style={{ color: "#7c8398" }}>
+              Indica el total de capítulos para calcular cuánto te queda.
+            </span>
+          )}
+          {done && !watched && (
+            <button
+              onClick={onWatch}
+              className="text-xs font-semibold py-1.5 px-3 rounded-lg"
+              style={{ background: "#134e3a", color: "#6ee7b7" }}
+            >
+              ✓ Marcar como vista
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -257,7 +504,8 @@ export default function App() {
   const [tab, setTab] = useState("movies");
   const [saved, setSaved] = useState([]);
   const [watched, setWatched] = useState([]);
-  const [trends, setTrends] = useState({}); // { movies: {items, ts}, ... }
+  const [following, setFollowing] = useState([]);
+  const [trends, setTrends] = useState({});
   const [loading, setLoading] = useState({});
   const [errors, setErrors] = useState({});
   const [ready, setReady] = useState(false);
@@ -267,6 +515,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [syncError, setSyncError] = useState(null);
+  const [listCat, setListCat] = useState("all");
+  const [listGenre, setListGenre] = useState(null);
 
   // Sesión de Supabase (si está configurado)
   useEffect(() => {
@@ -287,48 +537,61 @@ export default function App() {
     setReady(true);
   }, []);
 
-  // Cargar listas: de la nube si hay sesión, de localStorage si no
+  // Cargar listas: de la nube si hay sesión, de localStorage si no.
+  // Solo recarga cuando cambia el USUARIO (los refrescos de token de Supabase
+  // emiten nuevos objetos de sesión que no deben machacar el estado actual).
+  const loadedUserRef = useRef(undefined);
   useEffect(() => {
-    let cancelled = false;
+    const uid = session?.user?.id ?? null;
+    if (loadedUserRef.current === uid) return;
+    loadedUserRef.current = uid;
+
     (async () => {
       setSyncError(null);
       if (session?.user && supabase) {
         try {
           const cloud = await loadCloudLists(session.user.id);
-          if (cancelled) return;
+          if (loadedUserRef.current !== uid) return; // cambió el usuario mientras cargaba
           if (cloud) {
             setSaved(cloud.saved || []);
             setWatched(cloud.watched || []);
+            setFollowing(cloud.following || []);
+            if (cloud.following === null) {
+              setSyncError(
+                'Para sincronizar "Siguiendo" en la nube, ejecuta en el SQL Editor de Supabase: alter table public.watchlists add column if not exists following jsonb not null default \'[]\';'
+              );
+            }
           } else {
-            // Primera vez con esta cuenta: sube las listas locales como punto de partida
             const local = readLocalLists();
             setSaved(local.saved);
             setWatched(local.watched);
-            await saveCloudLists(session.user.id, local.saved, local.watched);
+            setFollowing(local.following);
+            await saveCloudLists(session.user.id, local.saved, local.watched, local.following);
           }
         } catch (e) {
-          if (!cancelled) setSyncError("No se pudieron cargar tus listas de la nube: " + (e.message || e));
+          if (loadedUserRef.current === uid) setSyncError("Aviso de sincronización: " + (e.message || e));
         }
       } else {
         const local = readLocalLists();
         setSaved(local.saved);
         setWatched(local.watched);
+        setFollowing(local.following);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [session]);
 
-  const persistLists = useCallback(
-    (nextSaved, nextWatched) => {
+  const persistAll = useCallback(
+    (nextSaved, nextWatched, nextFollowing) => {
       if (session?.user && supabase) {
-        saveCloudLists(session.user.id, nextSaved, nextWatched).catch((e) =>
-          setSyncError("No se pudo guardar en la nube: " + (e.message || e))
+        saveCloudLists(session.user.id, nextSaved, nextWatched, nextFollowing).catch((e) =>
+          setSyncError("Aviso de sincronización: " + (e.message || e))
         );
       } else {
         try {
-          localStorage.setItem(STORAGE_LISTS, JSON.stringify({ saved: nextSaved, watched: nextWatched }));
+          localStorage.setItem(
+            STORAGE_LISTS,
+            JSON.stringify({ saved: nextSaved, watched: nextWatched, following: nextFollowing })
+          );
         } catch (e) {
           console.error("No se pudo guardar", e);
         }
@@ -376,29 +639,46 @@ export default function App() {
 
   const savedIds = new Set(saved.map(itemId));
   const watchedIds = new Set(watched.map(itemId));
+  const followingIds = new Set(following.map(itemId));
 
   const toggleSave = (item) => {
     const id = itemId(item);
     const next = savedIds.has(id) ? saved.filter((s) => itemId(s) !== id) : [...saved, item];
     setSaved(next);
-    persistLists(next, watched);
+    persistAll(next, watched, following);
   };
 
   const toggleWatch = (item) => {
     const id = itemId(item);
     const next = watchedIds.has(id) ? watched.filter((w) => itemId(w) !== id) : [...watched, item];
     setWatched(next);
-    persistLists(saved, next);
+    persistAll(saved, next, following);
+  };
+
+  const toggleFollow = (item) => {
+    const id = itemId(item);
+    const next = followingIds.has(id)
+      ? following.filter((f) => itemId(f) !== id)
+      : [...following, { ...item, ep: 0 }];
+    setFollowing(next);
+    persistAll(saved, watched, next);
+  };
+
+  const updateFollow = (item, patch) => {
+    const id = itemId(item);
+    const next = following.map((f) => (itemId(f) === id ? { ...f, ...patch } : f));
+    setFollowing(next);
+    persistAll(saved, watched, next);
   };
 
   const addManual = () => {
     const t = manualTitle.trim();
     if (!t) return;
-    const item = { title: t, cat: manualCat, year: "", genre: CATS.find((c) => c.key === manualCat)?.label, description: "" };
+    const item = { title: t, cat: manualCat, year: "", genre: "", description: "" };
     if (!savedIds.has(itemId(item))) {
       const next = [...saved, item];
       setSaved(next);
-      persistLists(next, watched);
+      persistAll(next, watched, following);
     }
     setManualTitle("");
   };
@@ -409,8 +689,17 @@ export default function App() {
 
   const pendingSaved = saved.filter((s) => !watchedIds.has(itemId(s)));
 
+  // Filtros de Mi Lista
+  const filteredSaved = pendingSaved.filter((s) => {
+    if (listCat !== "all" && s.cat !== listCat) return false;
+    if (listGenre && s.genre !== listGenre) return false;
+    return true;
+  });
+  const listGenres = [...new Set(pendingSaved.map((s) => s.genre).filter(Boolean))].sort();
+
   const TABS = [
     ...CATS,
+    { key: "following", label: `Siguiendo (${following.length})`, emoji: "📌" },
     { key: "list", label: `Mi Lista (${pendingSaved.length})`, emoji: "🔖" },
     { key: "seen", label: `Vistas (${watched.length})`, emoji: "✅" },
   ];
@@ -425,8 +714,10 @@ export default function App() {
             item={it}
             saved={savedIds.has(id)}
             watched={watchedIds.has(id)}
+            followed={followingIds.has(id)}
             onSave={() => toggleSave(it)}
             onWatch={() => toggleWatch(it)}
+            onFollow={() => toggleFollow(it)}
             onOpen={() => setDetailItem(it)}
             onRemove={opts.removable ? () => (opts.fromSeen ? toggleWatch(it) : toggleSave(it)) : null}
           />
@@ -438,36 +729,59 @@ export default function App() {
   const isCatTab = CATS.some((c) => c.key === tab);
   const catData = trends[tab];
 
+  const filterChip = (active, label, onClick) => (
+    <button
+      key={label}
+      onClick={onClick}
+      className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+      style={
+        active
+          ? { background: ACCENT, color: "#1a1408" }
+          : { background: "#151a26", color: "#aab1c4", border: "1px solid #232b3d" }
+      }
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <div className="min-h-screen" style={{ background: "#0c0e14", color: "#e7eaf2", fontFamily: "system-ui, sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ background: "#0c0e14", color: "#e7eaf2", fontFamily: "system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
         @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
         .marquee-dot { width:6px; height:6px; border-radius:50%; background:${ACCENT}; opacity:.35; }
         .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes heroFade { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
         @keyframes heroBadgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,194,75,0.5); } 50% { box-shadow: 0 0 0 8px rgba(255,194,75,0); } }
+        @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         .hero-fade { animation: heroFade 0.7s ease-out; }
         .hero-badge { animation: heroBadgePulse 2.2s ease-out infinite; }
-        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
+        .bob { animation: bob 2.4s ease-in-out infinite; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }`}</style>
 
       {/* Cabecera estilo marquesina */}
-      <header className="px-5 pt-6 pb-4 max-w-7xl mx-auto">
+      <header className="px-5 pt-6 pb-4 max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-2 mb-1">
           {[...Array(14)].map((_, i) => (
             <span key={i} className="marquee-dot" style={{ opacity: i % 2 ? 0.15 : 0.4 }} />
           ))}
         </div>
         <div className="flex items-end justify-between gap-3 flex-wrap">
-          <div>
-            <h1
-              className="text-4xl sm:text-5xl tracking-widest"
-              style={{ fontFamily: "'Bebas Neue', sans-serif", color: ACCENT }}
-            >
-              MI WATCHLIST
-            </h1>
-            <p className="text-sm" style={{ color: "#8b93a7" }}>
-              Tendencias de cine, series y anime · {saved.length} guardadas · {watched.length} vistas
-            </p>
+          <div className="flex items-end gap-3">
+            <div>
+              <h1
+                className="text-4xl sm:text-5xl tracking-widest"
+                style={{ fontFamily: "'Bebas Neue', sans-serif", color: ACCENT }}
+              >
+                MI WATCHLIST
+              </h1>
+              <p className="text-sm" style={{ color: "#8b93a7" }}>
+                Tendencias de cine, series y anime · {saved.length} guardadas · {watched.length} vistas
+              </p>
+            </div>
+            <Dancer src={GIFS.bailaora} size={44} className="bob hidden sm:block" />
+            <Dancer src={GIFS.robot} size={44} className="bob hidden sm:block" style={{ animationDelay: "0.4s" }} />
           </div>
 
           {supabase &&
@@ -500,7 +814,7 @@ export default function App() {
       </header>
 
       {/* Pestañas */}
-      <nav className="max-w-7xl mx-auto px-5 flex gap-2 flex-wrap mb-5">
+      <nav className="max-w-7xl mx-auto w-full px-5 flex gap-2 flex-wrap mb-5">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -517,9 +831,9 @@ export default function App() {
         ))}
       </nav>
 
-      <main className="max-w-7xl mx-auto px-5 pb-16">
+      <main className="max-w-7xl mx-auto w-full px-5 pb-16 flex-1">
         {syncError && (
-          <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: "#2a1717", color: "#f3b3b3" }}>
+          <div className="rounded-lg p-3 mb-4 text-sm" style={{ background: "#2a2117", color: "#fbd38d" }}>
             {syncError}
           </div>
         )}
@@ -529,7 +843,9 @@ export default function App() {
           <>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <p className="text-xs" style={{ color: "#7c8398" }}>
-                {catData?.ts ? `Última actualización: ${timeAgo(catData.ts)}` : "Sin datos todavía"}
+                {catData?.ts
+                  ? `${catData.items?.length || 0} títulos · Última actualización: ${timeAgo(catData.ts)}`
+                  : "Sin datos todavía"}
               </p>
               <button
                 onClick={() => refresh(tab)}
@@ -542,8 +858,8 @@ export default function App() {
             </div>
 
             {loading[tab] && (
-              <div className="flex items-center gap-3 py-10 justify-center" style={{ color: "#8b93a7" }}>
-                <span className="spin inline-block text-xl">🎞️</span>
+              <div className="flex flex-col items-center gap-3 py-10 justify-center" style={{ color: "#8b93a7" }}>
+                <Dancer src={GIFS.palomitas} size={70} className="bob" />
                 Consultando lo más popular ahora mismo…
               </div>
             )}
@@ -560,8 +876,10 @@ export default function App() {
                   item={catData.items[0]}
                   saved={savedIds.has(itemId(catData.items[0]))}
                   watched={watchedIds.has(itemId(catData.items[0]))}
+                  followed={followingIds.has(itemId(catData.items[0]))}
                   onSave={() => toggleSave(catData.items[0])}
                   onWatch={() => toggleWatch(catData.items[0])}
+                  onFollow={() => toggleFollow(catData.items[0])}
                   onOpen={() => setDetailItem(catData.items[0])}
                 />
                 {renderGrid(catData.items.slice(1))}
@@ -570,11 +888,37 @@ export default function App() {
           </>
         )}
 
+        {/* Siguiendo */}
+        {tab === "following" &&
+          (following.length === 0 ? (
+            <EmptyState gif={GIFS.fiesta}>
+              No sigues ninguna serie todavía. Pulsa <b style={{ color: "#93c5fd" }}>📌</b> en cualquier serie o anime
+              para llevar la cuenta de por qué capítulo vas y saber cuánto te queda para terminarla.
+            </EmptyState>
+          ) : (
+            <div className="flex flex-col gap-4 max-w-3xl">
+              {following.map((f) => {
+                const id = itemId(f);
+                return (
+                  <FollowRow
+                    key={id}
+                    item={f}
+                    watched={watchedIds.has(id)}
+                    onUpdate={(patch) => updateFollow(f, patch)}
+                    onRemove={() => toggleFollow(f)}
+                    onWatch={() => toggleWatch(f)}
+                    onOpen={() => setDetailItem(f)}
+                  />
+                );
+              })}
+            </div>
+          ))}
+
         {/* Mi Lista */}
         {tab === "list" && (
           <>
             <div
-              className="rounded-xl p-4 mb-5 flex gap-2 flex-wrap items-center"
+              className="rounded-xl p-4 mb-4 flex gap-2 flex-wrap items-center"
               style={{ background: "#151a26", border: "1px solid #232b3d" }}
             >
               <input
@@ -606,12 +950,52 @@ export default function App() {
               </button>
             </div>
 
+            {/* Filtros por categoría */}
+            {pendingSaved.length > 0 && (
+              <div className="flex flex-col gap-2 mb-5">
+                <div className="flex gap-2 flex-wrap items-center">
+                  <span className="text-xs font-semibold" style={{ color: "#7c8398" }}>
+                    CATEGORÍA:
+                  </span>
+                  {filterChip(listCat === "all", "Todas", () => setListCat("all"))}
+                  {CATS.map((c) => filterChip(listCat === c.key, `${c.emoji} Solo ${c.label.toLowerCase()}`, () => setListCat(c.key)))}
+                </div>
+                {listGenres.length > 0 && (
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <span className="text-xs font-semibold" style={{ color: "#7c8398" }}>
+                      TEMÁTICA:
+                    </span>
+                    {filterChip(listGenre === null, "Todas", () => setListGenre(null))}
+                    {listGenres.map((g) => {
+                      const gs = genreStyle(g);
+                      return (
+                        <button
+                          key={g}
+                          onClick={() => setListGenre(listGenre === g ? null : g)}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+                          style={
+                            listGenre === g
+                              ? { background: gs.text, color: gs.bg }
+                              : { background: gs.bg, color: gs.text, border: "1px solid #232b3d" }
+                          }
+                        >
+                          {gs.emoji} {g}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {pendingSaved.length === 0 ? (
-              <p className="text-center py-10 text-sm" style={{ color: "#7c8398" }}>
+              <EmptyState gif={GIFS.pinguino}>
                 Tu lista está vacía. Guarda algo desde Tendencias con el botón 🔖 o añádelo a mano arriba.
-              </p>
+              </EmptyState>
+            ) : filteredSaved.length === 0 ? (
+              <EmptyState gif={GIFS.pulpo}>No hay nada en tu lista con esos filtros.</EmptyState>
             ) : (
-              renderGrid(pendingSaved, { removable: true })
+              renderGrid(filteredSaved, { removable: true })
             )}
           </>
         )}
@@ -619,13 +1003,27 @@ export default function App() {
         {/* Vistas */}
         {tab === "seen" &&
           (watched.length === 0 ? (
-            <p className="text-center py-10 text-sm" style={{ color: "#7c8398" }}>
-              Aún no has marcado nada como visto. Usa el botón "Marcar vista" en cualquier ficha.
-            </p>
+            <EmptyState gif={GIFS.fantasma}>
+              Aún no has marcado nada como visto. Usa el botón "✓ Vista" en cualquier ficha.
+            </EmptyState>
           ) : (
             renderGrid(watched, { removable: true, fromSeen: true })
           ))}
       </main>
+
+      {/* Pie con bailarines */}
+      <footer className="py-6 flex flex-col items-center gap-2" style={{ borderTop: "1px solid #171c29" }}>
+        <div className="flex items-end gap-4">
+          <Dancer src={GIFS.fantasma} size={34} className="bob" />
+          <Dancer src={GIFS.bailaora} size={40} className="bob" style={{ animationDelay: "0.3s" }} />
+          <Dancer src={GIFS.pulpo} size={34} className="bob" style={{ animationDelay: "0.6s" }} />
+          <Dancer src={GIFS.robot} size={40} className="bob" style={{ animationDelay: "0.9s" }} />
+          <Dancer src={GIFS.pinguino} size={34} className="bob" style={{ animationDelay: "1.2s" }} />
+        </div>
+        <p className="text-xs" style={{ color: "#4b5266" }}>
+          Hecho con 🍿 · Datos de TMDB
+        </p>
+      </footer>
 
       {/* Modal de detalle */}
       {detailItem && (
@@ -633,8 +1031,10 @@ export default function App() {
           item={detailItem}
           saved={savedIds.has(itemId(detailItem))}
           watched={watchedIds.has(itemId(detailItem))}
+          followed={followingIds.has(itemId(detailItem))}
           onSave={() => toggleSave(detailItem)}
           onWatch={() => toggleWatch(detailItem)}
+          onFollow={isSeries(detailItem) ? () => toggleFollow(detailItem) : null}
           onClose={() => setDetailItem(null)}
         />
       )}

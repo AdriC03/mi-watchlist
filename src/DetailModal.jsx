@@ -13,7 +13,7 @@ function Row({ label, value }) {
   );
 }
 
-export default function DetailModal({ item, saved, watched, onSave, onWatch, onClose }) {
+export default function DetailModal({ item, saved, watched, followed, onSave, onWatch, onFollow, onClose }) {
   const [details, setDetails] = useState(null);
   const [error, setError] = useState(null);
 
@@ -218,6 +218,19 @@ export default function DetailModal({ item, saved, watched, onSave, onWatch, onC
             >
               {watched ? "✓ Ya vista" : "Marcar vista"}
             </button>
+            {onFollow && (
+              <button
+                onClick={onFollow}
+                className="text-sm font-semibold px-5 py-2.5 rounded-lg"
+                style={
+                  followed
+                    ? { background: "#1e3a8a", color: "#93c5fd" }
+                    : { background: "transparent", color: "#93c5fd", border: "1px solid #2b3448" }
+                }
+              >
+                {followed ? "📌 Siguiendo" : "📌 Seguir"}
+              </button>
+            )}
           </div>
         </div>
       </div>

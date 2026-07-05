@@ -32,6 +32,7 @@ Sin configurar nada, la app funciona en "modo invitado": las listas se guardan e
      user_id uuid primary key references auth.users(id) on delete cascade,
      saved jsonb not null default '[]',
      watched jsonb not null default '[]',
+     following jsonb not null default '[]',
      updated_at timestamptz not null default now()
    );
 
