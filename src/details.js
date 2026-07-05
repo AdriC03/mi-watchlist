@@ -49,6 +49,10 @@ export async function fetchDetails(kind, tmdbId) {
     runtime: isMovie ? d.runtime : null, // minutos
     seasons: isMovie ? null : d.number_of_seasons,
     episodes: isMovie ? null : d.number_of_episodes,
+    epRuntime: isMovie ? null : d.last_episode_to_air?.runtime || d.episode_run_time?.[0] || null,
+    director: isMovie
+      ? d.credits?.crew?.find((c) => c.job === "Director")?.name || null
+      : d.created_by?.[0]?.name || null,
     status: d.status,
     rating: d.vote_average ? d.vote_average.toFixed(1) : "",
     votes: d.vote_count,

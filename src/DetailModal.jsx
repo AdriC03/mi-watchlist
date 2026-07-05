@@ -13,9 +13,46 @@ function Row({ label, value }) {
   );
 }
 
-export default function DetailModal({ item, saved, watched, followed, onSave, onWatch, onFollow, onClose }) {
+function StarRating({ value, onChange }) {
+  const [hover, setHover] = useState(0);
+  const shown = hover || value || 0;
+  return (
+    <div className="flex items-center gap-0.5 flex-wrap">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+        <button
+          key={n}
+          onClick={() => onChange(n === value ? null : n)}
+          onMouseEnter={() => setHover(n)}
+          onMouseLeave={() => setHover(0)}
+          className="text-xl leading-none transition-transform hover:scale-125"
+          style={{ color: n <= shown ? ACCENT : "#2b3448", filter: n <= shown ? "drop-shadow(0 0 4px rgba(255,194,75,0.5))" : "none" }}
+          title={`${n}/10`}
+        >
+          ★
+        </button>
+      ))}
+      {value ? (
+        <span className="ml-2 text-sm font-bold" style={{ color: ACCENT }}>
+          {value}/10
+        </span>
+      ) : (
+        <span className="ml-2 text-xs" style={{ color: "#5b6478" }}>
+          Puntúala
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default function DetailModal({ item, saved, watched, followed, review, onReview, onSave, onWatch, onFollow, onClose }) {
   const [details, setDetails] = useState(null);
   const [error, setError] = useState(null);
+  const [note, setNote] = useState(review?.note || "");
+
+  useEffect(() => {
+    setNote(review?.note || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item]);
 
   useEffect(() => {
     setDetails(null);
@@ -180,6 +217,25 @@ export default function DetailModal({ item, saved, watched, followed, onSave, on
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Tu reseña */}
+          {onReview && (
+            <div className="rounded-xl p-4" style={{ background: "#0e1119", border: "1px solid #232b3d" }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8b93a7" }}>
+                TU RESEÑA
+              </h3>
+              <StarRating value={review?.rating || null} onChange={(rating) => onReview({ rating })} />
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                onBlur={() => onReview({ note: note.trim() || null })}
+                placeholder="Escribe tu comentario… (se guarda solo)"
+                rows={2}
+                className="w-full mt-3 text-sm px-3 py-2 rounded-lg outline-none resize-y"
+                style={{ background: "#0c0e14", border: "1px solid #2b3448", color: "#e7eaf2" }}
+              />
             </div>
           )}
 

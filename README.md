@@ -1,6 +1,6 @@
-# Mi Watchlist
+# WatchNext
 
-App para guardar y hacer seguimiento de películas, series y anime, con tendencias en tiempo real.
+App para guardar y hacer seguimiento de películas, series y anime: tendencias en tiempo real, buscador, progreso de capítulos, notificaciones de episodios nuevos, reseñas personales y estadísticas.
 
 - **Guardar / marcar como vista / añadir a mano**: persiste en `localStorage`, no requiere nada más.
 - **Tendencias**: películas y series vía [TMDB](https://www.themoviedb.org) (gratis, requiere API key), anime vía [Jikan](https://jikan.moe) (gratis, sin registro).
@@ -33,6 +33,7 @@ Sin configurar nada, la app funciona en "modo invitado": las listas se guardan e
      saved jsonb not null default '[]',
      watched jsonb not null default '[]',
      following jsonb not null default '[]',
+     reviews jsonb not null default '{}',
      updated_at timestamptz not null default now()
    );
 

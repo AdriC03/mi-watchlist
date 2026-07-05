@@ -27,6 +27,23 @@ export function getTmdbKey() {
   return import.meta.env.VITE_TMDB_API_KEY;
 }
 
+export function genreName(kind, genreId) {
+  return (kind === "movie" ? MOVIE_GENRES : TV_GENRES)[genreId] || "";
+}
+
+// Datos rápidos de una serie (para completar items que vienen del buscador)
+export async function fetchTvFacts(tmdbId) {
+  const apiKey = getTmdbKey();
+  const r = await fetch(`${TMDB}/tv/${tmdbId}?api_key=${apiKey}&language=es-ES`);
+  if (!r.ok) throw new Error(`Error de TMDB (${r.status})`);
+  const d = await r.json();
+  return {
+    seasons: d.number_of_seasons || null,
+    episodes: d.number_of_episodes || null,
+    epRuntime: d.last_episode_to_air?.runtime || d.episode_run_time?.[0] || null,
+  };
+}
+
 function truncate(text, maxWords = 30) {
   if (!text) return "";
   const words = text.split(/\s+/);
