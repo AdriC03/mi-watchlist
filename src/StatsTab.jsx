@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchFacts, factKey } from "./facts.js";
 import { genreStyle } from "./genres.js";
+import { computeCineStats, computeMedals } from "./medals.js";
 
 const ACCENT = "#4DA6FF";
 const GOLD = "#FFC24B";
@@ -159,6 +160,10 @@ export default function StatsTab({ watched, following, reviews }) {
       color: c === "movies" ? "#fdba74" : c === "series" ? "#93c5fd" : "#f9a8d4",
     }));
 
+  const cineStats = computeCineStats({ watched, following, reviews, factsMap: facts });
+  const medals = computeMedals(cineStats);
+  const unlockedCount = medals.filter((m) => m.unlocked).length;
+
   const empty = watched.length === 0 && following.length === 0;
 
   if (empty) {
@@ -211,6 +216,47 @@ export default function StatsTab({ watched, following, reviews }) {
           </div>
         </Section>
       )}
+
+      <Section title={`🎖️ Tus medallas (${unlockedCount}/${medals.length})`}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+          {medals.map((m) =>
+            m.unlocked ? (
+              <div
+                key={m.id}
+                className="rounded-xl p-3 flex items-center gap-3"
+                style={{ background: "rgba(255,194,75,0.08)", border: `1px solid ${GOLD}55` }}
+              >
+                <span className="text-3xl">{m.emoji}</span>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: GOLD }}>
+                    {m.name}
+                  </p>
+                  <p className="text-xs" style={{ color: "#A9BAD6" }}>
+                    {m.desc}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div
+                key={m.id}
+                className="rounded-xl p-3 flex items-center gap-3"
+                style={{ background: "#0A1322", border: "1px solid #1D3157", opacity: 0.5 }}
+                title="Aún no desbloqueada — ¡sigue viendo!"
+              >
+                <span className="text-3xl">🔒</span>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: "#7D8BA6" }}>
+                    {m.name}
+                  </p>
+                  <p className="text-xs" style={{ color: "#5D6C88" }}>
+                    {m.desc}
+                  </p>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      </Section>
 
       {topRated.length > 0 && (
         <Section title="⭐ Tus mejores notas">

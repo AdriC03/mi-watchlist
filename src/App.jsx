@@ -11,7 +11,9 @@ import TodayModal from "./TodayModal.jsx";
 import RecsModal from "./RecsModal.jsx";
 import SwipeModal from "./SwipeModal.jsx";
 import SharedProfile from "./SharedProfile.jsx";
-import { useFacts, effectiveDuration, factKey } from "./facts.js";
+import { useFacts, effectiveDuration, factKey, fetchFacts } from "./facts.js";
+import { usernameFromId, guestUsername } from "./username.js";
+import { computeCineStats, computeMedals } from "./medals.js";
 import { supabase, loadCloudLists, saveCloudLists, publishProfile } from "./supabase.js";
 
 // ---------- Config ----------
@@ -929,14 +931,34 @@ export default function App() {
             cat: src?.cat || "",
           };
         });
-      const name = session.user.email.split("@")[0];
-      await publishProfile(session.user.id, name, items);
+      // Afina duraciones con las fichas de TMDB antes de calcular el "pique"
+      const targets = watched.filter((w) => w.tmdbId).slice(0, 40);
+      const entries = await Promise.all(targets.map(async (w) => [factKey(w), await fetchFacts(w)]));
+      const factsMap = Object.fromEntries(entries);
+      const stats = computeCineStats({ watched, following, reviews, factsMap });
+      const medals = computeMedals(stats);
+
+      await publishProfile(session.user.id, username, {
+        list: items,
+        stats: {
+          totalMins: stats.totalMins,
+          byGenre: stats.byGenre,
+          byCat: stats.byCat,
+          watchedCount: stats.watchedCount,
+          followingCount: stats.followingCount,
+          episodesSeen: stats.episodesSeen,
+          ratedCount: stats.ratedCount,
+        },
+        medals,
+      });
       const link = `${window.location.origin}${window.location.pathname}#/u/${session.user.id}`;
       setShareInfo({ link, count: items.length });
     } catch (e) {
       setSyncError("No se pudo publicar tu lista: " + (e.message || e));
     }
   };
+
+  const username = session?.user ? usernameFromId(session.user.id) : guestUsername();
 
   const pendingSaved = saved.filter((s) => !watchedIds.has(itemId(s)));
   const listFacts = useFacts(pendingSaved, tab === "list");
@@ -1134,8 +1156,9 @@ export default function App() {
                   <span
                     className="text-xs px-3 py-1.5 rounded-full hidden sm:inline"
                     style={{ background: "#0F1B33", color: "#A9BAD6", border: "1px solid #1D3157" }}
+                    title={session.user.email}
                   >
-                    👤 {session.user.email}
+                    👤 {username}
                   </span>
                   <button
                     onClick={shareList}
@@ -1154,13 +1177,22 @@ export default function App() {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => setAuthOpen(true)}
-                  className="text-sm font-semibold px-4 py-2 rounded-full"
-                  style={{ background: "transparent", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }}
-                >
-                  👤 Iniciar sesión
-                </button>
+                <>
+                  <span
+                    className="text-xs px-3 py-1.5 rounded-full hidden sm:inline"
+                    style={{ background: "#0F1B33", color: "#A9BAD6", border: "1px solid #1D3157" }}
+                    title="Tu nombre de invitado en este navegador"
+                  >
+                    👤 {username}
+                  </span>
+                  <button
+                    onClick={() => setAuthOpen(true)}
+                    className="text-sm font-semibold px-4 py-2 rounded-full"
+                    style={{ background: "transparent", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }}
+                  >
+                    Iniciar sesión
+                  </button>
+                </>
               ))}
           </div>
         </div>
