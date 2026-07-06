@@ -9,6 +9,7 @@ import StatsTab from "./StatsTab.jsx";
 import HotTab from "./HotTab.jsx";
 import TodayModal from "./TodayModal.jsx";
 import RecsModal from "./RecsModal.jsx";
+import SwipeModal from "./SwipeModal.jsx";
 import SharedProfile from "./SharedProfile.jsx";
 import { useFacts, effectiveDuration, factKey } from "./facts.js";
 import { supabase, loadCloudLists, saveCloudLists, publishProfile } from "./supabase.js";
@@ -646,6 +647,7 @@ export default function App() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [todayOpen, setTodayOpen] = useState(false);
   const [recsOpen, setRecsOpen] = useState(false);
+  const [swipeOpen, setSwipeOpen] = useState(false);
   const [shareInfo, setShareInfo] = useState(null);
   const [listDuration, setListDuration] = useState(null);
   const [listPlatform, setListPlatform] = useState(null);
@@ -1219,6 +1221,13 @@ export default function App() {
             >
               🎯 Recomiéndame algo
             </button>
+            <button
+              onClick={() => setSwipeOpen(true)}
+              className="text-sm font-semibold px-4 py-2 rounded-full"
+              style={{ background: "rgba(255,194,75,0.1)", color: GOLD, border: "1px solid #6b5322" }}
+            >
+              🎰 Ruleta
+            </button>
           </div>
         </nav>
       )}
@@ -1477,6 +1486,21 @@ export default function App() {
 
       {/* Compartir lista */}
       {shareInfo && <ShareModal info={shareInfo} onClose={() => setShareInfo(null)} />}
+
+      {/* Ruleta de la Indecisión */}
+      {swipeOpen && (
+        <SwipeModal
+          watched={watched}
+          following={following}
+          saved={saved}
+          reviews={reviews}
+          trends={trends}
+          savedIds={savedIds}
+          onSave={toggleSave}
+          onOpen={setDetailItem}
+          onClose={() => setSwipeOpen(false)}
+        />
+      )}
     </div>
   );
 }
