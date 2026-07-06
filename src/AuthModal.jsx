@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase.js";
 
-const ACCENT = "#FFC24B";
+const ACCENT = "#4DA6FF";
+const GOLD = "#FFC24B";
 
 export default function AuthModal({ onClose }) {
   const [mode, setMode] = useState("login"); // "login" | "signup"
@@ -49,20 +50,20 @@ export default function AuthModal({ onClose }) {
   };
 
   const inputStyle = {
-    background: "#0c0e14",
-    border: "1px solid #2b3448",
-    color: "#e7eaf2",
+    background: "#070D1A",
+    border: "1px solid #27406E",
+    color: "#E8EEF8",
   };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(5,6,10,0.85)", backdropFilter: "blur(4px)" }}
+      style={{ background: "rgba(3,6,14,0.85)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
         className="hero-fade w-full max-w-sm rounded-2xl p-6"
-        style={{ background: "#12161f", border: "1px solid #2b3448" }}
+        style={{ background: "#0D1729", border: "1px solid #27406E" }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2
@@ -71,7 +72,7 @@ export default function AuthModal({ onClose }) {
         >
           {mode === "login" ? "Iniciar sesión" : "Crear cuenta"}
         </h2>
-        <p className="text-xs mb-5" style={{ color: "#8b93a7" }}>
+        <p className="text-xs mb-5" style={{ color: "#8DA2C0" }}>
           Tus listas se guardarán en tu cuenta y estarán disponibles en cualquier dispositivo.
         </p>
 
@@ -113,7 +114,7 @@ export default function AuthModal({ onClose }) {
             type="submit"
             disabled={busy}
             className="text-sm font-semibold py-2.5 rounded-lg mt-1"
-            style={{ background: busy ? "#3a3122" : ACCENT, color: "#1a1408" }}
+            style={{ background: busy ? "#1D3252" : ACCENT, color: "#04101F" }}
           >
             {busy ? "Un momento…" : mode === "login" ? "Entrar" : "Registrarme"}
           </button>
@@ -126,7 +127,7 @@ export default function AuthModal({ onClose }) {
             setNotice(null);
           }}
           className="text-xs mt-4 w-full text-center"
-          style={{ color: "#8b93a7" }}
+          style={{ color: "#8DA2C0" }}
         >
           {mode === "login" ? (
             <>¿No tienes cuenta? <span style={{ color: ACCENT }}>Regístrate</span></>

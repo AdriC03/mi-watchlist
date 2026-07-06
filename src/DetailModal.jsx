@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { fetchDetails } from "./details.js";
 
-const ACCENT = "#FFC24B";
+const ACCENT = "#4DA6FF";
+const GOLD = "#FFC24B";
 
 function Row({ label, value }) {
   if (!value) return null;
   return (
     <p className="text-sm">
-      <span style={{ color: "#8b93a7" }}>{label}: </span>
-      <span style={{ color: "#d7dae6" }}>{value}</span>
+      <span style={{ color: "#8DA2C0" }}>{label}: </span>
+      <span style={{ color: "#D6DEED" }}>{value}</span>
     </p>
   );
 }
@@ -25,18 +26,18 @@ function StarRating({ value, onChange }) {
           onMouseEnter={() => setHover(n)}
           onMouseLeave={() => setHover(0)}
           className="text-xl leading-none transition-transform hover:scale-125"
-          style={{ color: n <= shown ? ACCENT : "#2b3448", filter: n <= shown ? "drop-shadow(0 0 4px rgba(255,194,75,0.5))" : "none" }}
+          style={{ color: n <= shown ? GOLD : "#27406E", filter: n <= shown ? "drop-shadow(0 0 4px rgba(255,194,75,0.5))" : "none" }}
           title={`${n}/10`}
         >
           ★
         </button>
       ))}
       {value ? (
-        <span className="ml-2 text-sm font-bold" style={{ color: ACCENT }}>
+        <span className="ml-2 text-sm font-bold" style={{ color: GOLD }}>
           {value}/10
         </span>
       ) : (
-        <span className="ml-2 text-xs" style={{ color: "#5b6478" }}>
+        <span className="ml-2 text-xs" style={{ color: "#5D6C88" }}>
           Puntúala
         </span>
       )}
@@ -90,12 +91,12 @@ export default function DetailModal({ item, saved, watched, followed, review, on
   return (
     <div
       className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto"
-      style={{ background: "rgba(5,6,10,0.85)", backdropFilter: "blur(4px)" }}
+      style={{ background: "rgba(3,6,14,0.85)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
         className="hero-fade relative w-full max-w-3xl rounded-2xl overflow-hidden my-6"
-        style={{ background: "#12161f", border: "1px solid #2b3448" }}
+        style={{ background: "#0D1729", border: "1px solid #27406E" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabecera con imagen */}
@@ -103,12 +104,12 @@ export default function DetailModal({ item, saved, watched, followed, review, on
           {backdrop && <img src={backdrop} alt="" className="w-full object-cover" style={{ maxHeight: 320 }} />}
           <div
             className="absolute inset-0"
-            style={{ background: "linear-gradient(to top, #12161f 2%, rgba(18,22,31,0.3) 60%, transparent)" }}
+            style={{ background: "linear-gradient(to top, #0D1729 2%, rgba(13,23,41,0.3) 60%, transparent)" }}
           />
           <button
             onClick={onClose}
             className="absolute right-3 top-3 w-9 h-9 rounded-full text-lg font-bold"
-            style={{ background: "rgba(10,12,18,0.8)", color: "#e7eaf2", border: "1px solid #2b3448" }}
+            style={{ background: "rgba(10,12,18,0.8)", color: "#E8EEF8", border: "1px solid #27406E" }}
             title="Cerrar"
           >
             ✕
@@ -121,7 +122,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
               {d?.title || item.title}
             </h2>
             {d?.tagline && (
-              <p className="text-sm italic" style={{ color: "#aab1c4" }}>
+              <p className="text-sm italic" style={{ color: "#A9BAD6" }}>
                 {d.tagline}
               </p>
             )}
@@ -132,18 +133,18 @@ export default function DetailModal({ item, saved, watched, followed, review, on
           {/* Metadatos */}
           <div className="flex flex-wrap gap-2 text-sm items-center">
             {(d?.rating || item.rating) && (
-              <span className="font-bold px-2 py-0.5 rounded-full text-xs" style={{ background: "#0c0e14", color: ACCENT }}>
+              <span className="font-bold px-2 py-0.5 rounded-full text-xs" style={{ background: "#070D1A", color: GOLD }}>
                 ★ {d?.rating || item.rating}
                 {d?.votes ? ` (${d.votes.toLocaleString("es-ES")} votos)` : ""}
               </span>
             )}
             {(d?.genres?.length ? d.genres : [item.genre].filter(Boolean)).map((g) => (
-              <span key={g} className="px-2 py-0.5 rounded-full text-xs" style={{ background: "#1c2333", color: "#aab1c4" }}>
+              <span key={g} className="px-2 py-0.5 rounded-full text-xs" style={{ background: "#16294A", color: "#A9BAD6" }}>
                 {g}
               </span>
             ))}
             {duration && (
-              <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: "#1c2333", color: "#aab1c4" }}>
+              <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: "#16294A", color: "#A9BAD6" }}>
                 {duration}
               </span>
             )}
@@ -151,7 +152,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
 
           {/* Sinopsis */}
           {!d && !error && item.tmdbId && (
-            <p className="text-sm" style={{ color: "#8b93a7" }}>
+            <p className="text-sm" style={{ color: "#8DA2C0" }}>
               <span className="spin inline-block mr-2">🎞️</span>Cargando ficha completa…
             </p>
           )}
@@ -160,7 +161,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
               No se pudo cargar la ficha completa: {error}
             </p>
           )}
-          <p className="text-sm leading-relaxed" style={{ color: "#d7dae6" }}>
+          <p className="text-sm leading-relaxed" style={{ color: "#D6DEED" }}>
             {d?.overview || item.description || "Sin descripción disponible."}
           </p>
 
@@ -171,7 +172,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
           {/* Dónde verla */}
           {d?.providers?.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8b93a7" }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8DA2C0" }}>
                 DÓNDE VERLA EN ESPAÑA
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -179,7 +180,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
                   <span
                     key={p.name}
                     className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold"
-                    style={{ background: "#1c2333", color: "#e7eaf2" }}
+                    style={{ background: "#16294A", color: "#E8EEF8" }}
                   >
                     {p.logo && <img src={p.logo} alt="" className="w-5 h-5 rounded" />}
                     {p.name}
@@ -192,7 +193,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
           {/* Reparto */}
           {d?.cast?.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8b93a7" }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8DA2C0" }}>
                 REPARTO
               </h3>
               <div className="flex gap-3 overflow-x-auto pb-2">
@@ -203,15 +204,15 @@ export default function DetailModal({ item, saved, watched, followed, review, on
                     ) : (
                       <div
                         className="w-20 h-20 rounded-full mb-1 flex items-center justify-center text-2xl"
-                        style={{ background: "#1c2333", color: "#5b6478" }}
+                        style={{ background: "#16294A", color: "#5D6C88" }}
                       >
                         👤
                       </div>
                     )}
-                    <p className="text-xs leading-tight" style={{ color: "#d7dae6" }}>
+                    <p className="text-xs leading-tight" style={{ color: "#D6DEED" }}>
                       {c.name}
                     </p>
-                    <p className="text-xs leading-tight" style={{ color: "#5b6478" }}>
+                    <p className="text-xs leading-tight" style={{ color: "#5D6C88" }}>
                       {c.character}
                     </p>
                   </div>
@@ -222,8 +223,8 @@ export default function DetailModal({ item, saved, watched, followed, review, on
 
           {/* Tu reseña */}
           {onReview && (
-            <div className="rounded-xl p-4" style={{ background: "#0e1119", border: "1px solid #232b3d" }}>
-              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8b93a7" }}>
+            <div className="rounded-xl p-4" style={{ background: "#0A1322", border: "1px solid #1D3157" }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: "#8DA2C0" }}>
                 TU RESEÑA
               </h3>
               <StarRating value={review?.rating || null} onChange={(rating) => onReview({ rating })} />
@@ -234,7 +235,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
                 placeholder="Escribe tu comentario… (se guarda solo)"
                 rows={2}
                 className="w-full mt-3 text-sm px-3 py-2 rounded-lg outline-none resize-y"
-                style={{ background: "#0c0e14", border: "1px solid #2b3448", color: "#e7eaf2" }}
+                style={{ background: "#070D1A", border: "1px solid #27406E", color: "#E8EEF8" }}
               />
             </div>
           )}
@@ -257,7 +258,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
               className="text-sm font-semibold px-5 py-2.5 rounded-lg"
               style={
                 saved
-                  ? { background: ACCENT, color: "#1a1408" }
+                  ? { background: ACCENT, color: "#04101F" }
                   : { background: "transparent", color: ACCENT, border: `1px solid ${ACCENT}` }
               }
             >
@@ -269,7 +270,7 @@ export default function DetailModal({ item, saved, watched, followed, review, on
               style={
                 watched
                   ? { background: "#134e3a", color: "#6ee7b7" }
-                  : { background: "transparent", color: "#9aa3b8", border: "1px solid #2b3448" }
+                  : { background: "transparent", color: "#98A8C4", border: "1px solid #27406E" }
               }
             >
               {watched ? "✓ Ya vista" : "Marcar vista"}
@@ -280,8 +281,8 @@ export default function DetailModal({ item, saved, watched, followed, review, on
                 className="text-sm font-semibold px-5 py-2.5 rounded-lg"
                 style={
                   followed
-                    ? { background: "#1e3a8a", color: "#93c5fd" }
-                    : { background: "transparent", color: "#93c5fd", border: "1px solid #2b3448" }
+                    ? { background: "#155E75", color: "#67E8F9" }
+                    : { background: "transparent", color: "#67E8F9", border: "1px solid #27406E" }
                 }
               >
                 {followed ? "📌 Siguiendo" : "📌 Seguir"}

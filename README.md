@@ -54,6 +54,30 @@ Sin configurar nada, la app funciona en "modo invitado": las listas se guardan e
 
 4. (Recomendado) En **Authentication → Sign In / Up → Email**, desactiva "Confirm email" para que el registro entre directamente sin correo de confirmación.
 
+### Compartir lista (perfil público)
+
+Para activar el botón "🔗 Compartir" (enlace público con tus mejores notas), ejecuta también:
+
+```sql
+create table public.public_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  name text,
+  items jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.public_profiles enable row level security;
+
+create policy "lectura pública" on public.public_profiles
+  for select using (true);
+
+create policy "cada usuario crea su fila" on public.public_profiles
+  for insert with check (auth.uid() = user_id);
+
+create policy "cada usuario actualiza su fila" on public.public_profiles
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
 ## Despliegue en GitHub Pages
 
 El repositorio incluye un workflow de GitHub Actions (`.github/workflows/deploy.yml`) que compila y publica la app automáticamente en cada push a `main`.

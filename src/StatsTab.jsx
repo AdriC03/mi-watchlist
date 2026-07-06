@@ -1,43 +1,11 @@
 import { useState, useEffect } from "react";
-import { getTmdbKey } from "./trending.js";
+import { fetchFacts, factKey } from "./facts.js";
 import { genreStyle } from "./genres.js";
 
-const TMDB = "https://api.themoviedb.org/3";
-const ACCENT = "#FFC24B";
+const ACCENT = "#4DA6FF";
+const GOLD = "#FFC24B";
 const CAT_LABEL = { movies: "Películas", series: "Series", anime: "Anime" };
 const CAT_EMOJI = { movies: "🎥", series: "📺", anime: "⛩️" };
-
-// Caché de fichas para no repetir peticiones dentro de la sesión
-const factsCache = new Map();
-
-async function fetchFacts(item) {
-  const key = `${item.kind}-${item.tmdbId}`;
-  if (factsCache.has(key)) return factsCache.get(key);
-  const apiKey = getTmdbKey();
-  try {
-    const r = await fetch(
-      `${TMDB}/${item.kind}/${item.tmdbId}?api_key=${apiKey}&language=es-ES&append_to_response=credits`
-    );
-    if (!r.ok) throw new Error();
-    const d = await r.json();
-    const facts =
-      item.kind === "movie"
-        ? {
-            runtime: d.runtime || null,
-            director: d.credits?.crew?.find((c) => c.job === "Director")?.name || null,
-          }
-        : {
-            episodes: d.number_of_episodes || null,
-            epRuntime: d.last_episode_to_air?.runtime || d.episode_run_time?.[0] || null,
-            director: d.created_by?.[0]?.name || null,
-          };
-    factsCache.set(key, facts);
-    return facts;
-  } catch {
-    factsCache.set(key, {});
-    return {};
-  }
-}
 
 const fmtHours = (mins) => {
   if (!mins) return "0 h";
@@ -49,12 +17,12 @@ const fmtHours = (mins) => {
 
 function BigNumber({ emoji, value, label }) {
   return (
-    <div className="rounded-xl p-4 flex-1 min-w-36" style={{ background: "#151a26", border: "1px solid #232b3d" }}>
+    <div className="rounded-xl p-4 flex-1 min-w-36" style={{ background: "#0F1B33", border: "1px solid #1D3157" }}>
       <p className="text-3xl mb-1">{emoji}</p>
       <p className="text-2xl font-bold" style={{ color: ACCENT, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.04em" }}>
         {value}
       </p>
-      <p className="text-xs" style={{ color: "#8b93a7" }}>
+      <p className="text-xs" style={{ color: "#8DA2C0" }}>
         {label}
       </p>
     </div>
@@ -67,15 +35,15 @@ function BarChart({ rows }) {
     <div className="flex flex-col gap-2">
       {rows.map((r) => (
         <div key={r.label} className="flex items-center gap-3">
-          <span className="w-40 sm:w-48 text-xs text-right truncate" style={{ color: "#aab1c4" }}>
+          <span className="w-40 sm:w-48 text-xs text-right truncate" style={{ color: "#A9BAD6" }}>
             {r.emoji} {r.label}
           </span>
-          <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: "#0e1119" }}>
+          <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: "#0A1322" }}>
             <div
               className="h-full rounded-full flex items-center justify-end px-2 transition-all duration-700"
               style={{ width: `${Math.max(8, (r.value / max) * 100)}%`, background: r.color || ACCENT }}
             >
-              <span className="text-xs font-bold" style={{ color: "#0c0e14" }}>
+              <span className="text-xs font-bold" style={{ color: "#070D1A" }}>
                 {r.display ?? r.value}
               </span>
             </div>
@@ -88,7 +56,7 @@ function BarChart({ rows }) {
 
 function Section({ title, children }) {
   return (
-    <div className="rounded-xl p-5" style={{ background: "#151a26", border: "1px solid #232b3d" }}>
+    <div className="rounded-xl p-5" style={{ background: "#0F1B33", border: "1px solid #1D3157" }}>
       <h3
         className="text-xl mb-4 tracking-wide"
         style={{ fontFamily: "'Bebas Neue', sans-serif", color: "#f3f4f8", letterSpacing: "0.05em" }}
@@ -112,7 +80,7 @@ export default function StatsTab({ watched, following, reviews }) {
     setLoadingFacts(true);
     (async () => {
       const entries = await Promise.all(
-        targets.map(async (w) => [`${w.kind}-${w.tmdbId}`, await fetchFacts(w)])
+        targets.map(async (w) => [factKey(w), await fetchFacts(w)])
       );
       if (!cancelled) {
         setFacts(Object.fromEntries(entries));
@@ -195,7 +163,7 @@ export default function StatsTab({ watched, following, reviews }) {
 
   if (empty) {
     return (
-      <p className="text-center py-12 text-sm" style={{ color: "#7c8398" }}>
+      <p className="text-center py-12 text-sm" style={{ color: "#7D8BA6" }}>
         Todavía no hay datos. Marca títulos como vistos ✓ o sigue series 📌 y aquí aparecerán tus estadísticas.
       </p>
     );
@@ -232,10 +200,10 @@ export default function StatsTab({ watched, following, reviews }) {
             {topDirectors.map(([name, n], i) => (
               <div key={name} className="flex items-center gap-3">
                 <span className="text-2xl w-8">{["🥇", "🥈", "🥉", "🎖️", "🎖️"][i]}</span>
-                <span className="text-sm font-semibold flex-1" style={{ color: "#e7eaf2" }}>
+                <span className="text-sm font-semibold flex-1" style={{ color: "#E8EEF8" }}>
                   {name}
                 </span>
-                <span className="text-xs" style={{ color: "#8b93a7" }}>
+                <span className="text-xs" style={{ color: "#8DA2C0" }}>
                   {n} título{n > 1 ? "s" : ""}
                 </span>
               </div>
@@ -249,14 +217,14 @@ export default function StatsTab({ watched, following, reviews }) {
           <div className="flex flex-col gap-2">
             {topRated.map((r) => (
               <div key={r.title} className="flex items-center gap-3">
-                <span className="text-sm font-bold w-14" style={{ color: ACCENT }}>
+                <span className="text-sm font-bold w-14" style={{ color: GOLD }}>
                   ★ {r.rating}/10
                 </span>
-                <span className="text-sm flex-1 truncate" style={{ color: "#e7eaf2" }}>
+                <span className="text-sm flex-1 truncate" style={{ color: "#E8EEF8" }}>
                   {r.title}
                 </span>
                 {r.note && (
-                  <span className="text-xs italic truncate max-w-64 hidden sm:block" style={{ color: "#8b93a7" }}>
+                  <span className="text-xs italic truncate max-w-64 hidden sm:block" style={{ color: "#8DA2C0" }}>
                     «{r.note}»
                   </span>
                 )}

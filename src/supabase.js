@@ -65,3 +65,30 @@ export async function saveCloudLists(userId, saved, watched, following, reviews)
     throw error;
   }
 }
+
+// ---------- Perfil público (modo "compartir lista") ----------
+// Publica una instantánea de tus títulos puntuados en una tabla de lectura
+// pública, para compartir con un enlace. Requiere la tabla public_profiles.
+export async function publishProfile(userId, name, items) {
+  const { error } = await supabase
+    .from("public_profiles")
+    .upsert({ user_id: userId, name, items, updated_at: new Date().toISOString() });
+  if (error) {
+    if (/public_profiles/.test(error.message || "") && /find|exist|schema/i.test(error.message || "")) {
+      throw new Error(
+        "Falta la tabla public_profiles en Supabase. Ejecuta el SQL de 'Compartir lista' del README y vuelve a intentarlo."
+      );
+    }
+    throw error;
+  }
+}
+
+export async function loadPublicProfile(userId) {
+  const { data, error } = await supabase
+    .from("public_profiles")
+    .select("name, items, updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}

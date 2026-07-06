@@ -6,7 +6,12 @@ import { genreStyle } from "./genres.js";
 import DetailModal from "./DetailModal.jsx";
 import AuthModal from "./AuthModal.jsx";
 import StatsTab from "./StatsTab.jsx";
-import { supabase, loadCloudLists, saveCloudLists } from "./supabase.js";
+import HotTab from "./HotTab.jsx";
+import TodayModal from "./TodayModal.jsx";
+import RecsModal from "./RecsModal.jsx";
+import SharedProfile from "./SharedProfile.jsx";
+import { useFacts, effectiveDuration, factKey } from "./facts.js";
+import { supabase, loadCloudLists, saveCloudLists, publishProfile } from "./supabase.js";
 
 // ---------- Config ----------
 const CATS = [
@@ -16,8 +21,9 @@ const CATS = [
 ];
 const CAT_EMOJI = { movies: "🎥", series: "📺", anime: "⛩️" };
 
-const ACCENT = "#FFC24B";
-const ACCENT_DIM = "#8a6a2a";
+const ACCENT = "#4DA6FF";
+const GOLD = "#FFC24B";
+const ACCENT_DIM = "#2A5C99";
 
 const STORAGE_LISTS = "watchlist-lists-v1";
 const STORAGE_TRENDS = "watchlist-trends-v3";
@@ -92,12 +98,12 @@ function Logo() {
           letterSpacing: 0,
           marginLeft: "3px",
           transform: "rotate(-8deg) translateY(5px)",
-          background: "linear-gradient(135deg, #FFC24B 20%, #ff7a59 70%, #f9a8d4)",
+          background: "linear-gradient(135deg, #4DA6FF 15%, #6366F1 60%, #A78BFA)",
           WebkitBackgroundClip: "text",
           backgroundClip: "text",
           color: "transparent",
           textTransform: "lowercase",
-          filter: "drop-shadow(0 2px 8px rgba(255,122,89,0.45))",
+          filter: "drop-shadow(0 2px 8px rgba(99,102,241,0.55))",
         }}
       >
         t
@@ -129,7 +135,7 @@ function EmptyState({ gif, children }) {
   return (
     <div className="flex flex-col items-center gap-4 py-12">
       <Dancer src={gif} size={90} />
-      <p className="text-center text-sm max-w-md" style={{ color: "#7c8398" }}>
+      <p className="text-center text-sm max-w-md" style={{ color: "#7D8BA6" }}>
         {children}
       </p>
     </div>
@@ -180,26 +186,26 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
   return (
     <div
       className="group rounded-xl overflow-hidden flex flex-col transition-transform duration-300 hover:-translate-y-1.5 hover:shadow-2xl"
-      style={{ background: "#151a26", border: "1px solid #232b3d" }}
+      style={{ background: "#0F1B33", border: "1px solid #1D3157" }}
     >
       <div className="relative overflow-hidden cursor-pointer" style={{ aspectRatio: "2 / 3" }} onClick={onOpen}>
         <Poster item={item} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
         <div
           className="absolute inset-x-0 bottom-0 h-20 pointer-events-none"
-          style={{ background: "linear-gradient(to top, rgba(12,14,20,0.95), transparent)" }}
+          style={{ background: "linear-gradient(to top, rgba(7,13,26,0.95), transparent)" }}
         />
         <div
           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ background: "rgba(8,9,13,0.45)" }}
+          style={{ background: "rgba(4,8,18,0.45)" }}
         >
-          <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: ACCENT, color: "#1a1408" }}>
+          <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: ACCENT, color: "#04101F" }}>
             Ver ficha
           </span>
         </div>
         {item.rating && (
           <span
             className="absolute right-2 top-2 text-xs font-bold px-2 py-0.5 rounded-full"
-            style={{ background: "#0c0e14", color: ACCENT }}
+            style={{ background: "#070D1A", color: GOLD }}
           >
             ★ {item.rating}
           </span>
@@ -207,7 +213,7 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
         {userRating && (
           <span
             className="absolute right-2 top-9 text-xs font-bold px-2 py-0.5 rounded-full"
-            style={{ background: "#0c0e14", color: "#f9a8d4" }}
+            style={{ background: "#070D1A", color: "#f9a8d4" }}
             title="Tu nota"
           >
             Tú: ★ {userRating}
@@ -230,12 +236,12 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
           {item.title}
         </h3>
         {meta && (
-          <p className="text-xs" style={{ color: "#8b93a7" }}>
+          <p className="text-xs" style={{ color: "#8DA2C0" }}>
             {meta}
           </p>
         )}
         {item.description && (
-          <p className="text-xs flex-1 line-clamp-3" style={{ color: "#b6bdcf" }}>
+          <p className="text-xs flex-1 line-clamp-3" style={{ color: "#B9C6DC" }}>
             {item.description}
           </p>
         )}
@@ -246,7 +252,7 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
             className="flex-1 text-xs font-semibold py-1.5 rounded-lg transition-colors"
             style={
               saved
-                ? { background: ACCENT, color: "#1a1408" }
+                ? { background: ACCENT, color: "#04101F" }
                 : { background: "transparent", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }
             }
           >
@@ -258,7 +264,7 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
             style={
               watched
                 ? { background: "#134e3a", color: "#6ee7b7" }
-                : { background: "transparent", color: "#9aa3b8", border: "1px solid #2b3448" }
+                : { background: "transparent", color: "#98A8C4", border: "1px solid #27406E" }
             }
           >
             {watched ? "✓" : "✓ Vista"}
@@ -270,8 +276,8 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
               className="text-xs font-semibold py-1.5 px-2.5 rounded-lg transition-colors"
               style={
                 followed
-                  ? { background: "#1e3a8a", color: "#93c5fd" }
-                  : { background: "transparent", color: "#93c5fd", border: "1px solid #2b3448" }
+                  ? { background: "#155E75", color: "#67E8F9" }
+                  : { background: "transparent", color: "#67E8F9", border: "1px solid #27406E" }
               }
             >
               📌
@@ -282,7 +288,7 @@ function Card({ item, saved, watched, followed, userRating, onSave, onWatch, onF
               onClick={onRemove}
               title="Quitar de la lista"
               className="text-xs py-1.5 px-2.5 rounded-lg"
-              style={{ background: "transparent", color: "#7c8398", border: "1px solid #2b3448" }}
+              style={{ background: "transparent", color: "#7D8BA6", border: "1px solid #27406E" }}
             >
               ✕
             </button>
@@ -305,20 +311,20 @@ function Hero({ item, saved, watched, followed, onSave, onWatch, onFollow, onOpe
       ) : (
         <div
           className="absolute inset-0"
-          style={{ background: `linear-gradient(135deg, hsl(${posterHue(item.title)},45%,18%), #0c0e14)` }}
+          style={{ background: `linear-gradient(135deg, hsl(${posterHue(item.title)},45%,18%), #070D1A)` }}
         />
       )}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to top, rgba(8,9,13,0.97) 8%, rgba(8,9,13,0.65) 50%, rgba(8,9,13,0.15) 100%), linear-gradient(to right, rgba(8,9,13,0.55), transparent 60%)",
+            "linear-gradient(to top, rgba(4,8,18,0.97) 8%, rgba(4,8,18,0.65) 50%, rgba(4,8,18,0.15) 100%), linear-gradient(to right, rgba(4,8,18,0.55), transparent 60%)",
         }}
       />
       <div className="relative flex flex-col justify-end p-6 sm:p-10" style={{ minHeight: 360 }}>
         <span
           className="hero-badge inline-block text-xs font-bold tracking-widest uppercase mb-3 px-3 py-1 rounded-full w-fit"
-          style={{ background: ACCENT, color: "#1a1408" }}
+          style={{ background: ACCENT, color: "#04101F" }}
         >
           🔥 Nº1 en tendencias ahora mismo
         </span>
@@ -331,7 +337,7 @@ function Hero({ item, saved, watched, followed, onSave, onWatch, onFollow, onOpe
         </h2>
         <div className="flex flex-wrap items-center gap-2 mb-2">
           {item.genre && <GenreBadge genre={item.genre} />}
-          <span className="text-sm" style={{ color: "#c7cbe0" }}>
+          <span className="text-sm" style={{ color: "#C4D0E4" }}>
             {[
               item.year,
               item.seasons && `${item.seasons} temporada${item.seasons > 1 ? "s" : ""}`,
@@ -342,7 +348,7 @@ function Hero({ item, saved, watched, followed, onSave, onWatch, onFollow, onOpe
           </span>
         </div>
         {item.description && (
-          <p className="text-sm max-w-2xl mb-5" style={{ color: "#d7dae6" }}>
+          <p className="text-sm max-w-2xl mb-5" style={{ color: "#D6DEED" }}>
             {item.description}
           </p>
         )}
@@ -350,7 +356,7 @@ function Hero({ item, saved, watched, followed, onSave, onWatch, onFollow, onOpe
           <button
             onClick={onOpen}
             className="text-sm font-semibold px-5 py-2.5 rounded-lg"
-            style={{ background: ACCENT, color: "#1a1408" }}
+            style={{ background: ACCENT, color: "#04101F" }}
           >
             Ver ficha completa
           </button>
@@ -382,7 +388,7 @@ function Hero({ item, saved, watched, followed, onSave, onWatch, onFollow, onOpe
               className="text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
               style={
                 followed
-                  ? { background: "#1e3a8a", color: "#93c5fd" }
+                  ? { background: "#155E75", color: "#67E8F9" }
                   : { background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)" }
               }
             >
@@ -412,7 +418,7 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
   return (
     <div
       className="rounded-xl overflow-hidden flex gap-4 p-4"
-      style={{ background: "#151a26", border: `1px solid ${done ? "#134e3a" : "#232b3d"}` }}
+      style={{ background: "#0F1B33", border: `1px solid ${done ? "#134e3a" : "#1D3157"}` }}
     >
       <div className="flex-shrink-0 w-20 sm:w-24 cursor-pointer" onClick={onOpen}>
         <Poster item={item} className="w-full rounded-lg object-cover" />
@@ -430,7 +436,7 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
             </h3>
             <div className="flex flex-wrap items-center gap-2 mt-1">
               {item.genre && <GenreBadge genre={item.genre} />}
-              <span className="text-xs" style={{ color: "#8b93a7" }}>
+              <span className="text-xs" style={{ color: "#8DA2C0" }}>
                 {[
                   item.seasons && `${item.seasons} temporada${item.seasons > 1 ? "s" : ""}`,
                   total && `${total} capítulos`,
@@ -444,20 +450,20 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
             onClick={onRemove}
             title="Dejar de seguir"
             className="text-xs py-1 px-2 rounded-lg flex-shrink-0"
-            style={{ background: "transparent", color: "#7c8398", border: "1px solid #2b3448" }}
+            style={{ background: "transparent", color: "#7D8BA6", border: "1px solid #27406E" }}
           >
             ✕
           </button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs" style={{ color: "#8b93a7" }}>
+          <span className="text-xs" style={{ color: "#8DA2C0" }}>
             Voy por el capítulo
           </span>
           <button
             onClick={() => setEp(ep - 1)}
             className="w-7 h-7 rounded-lg text-sm font-bold"
-            style={{ background: "#1c2333", color: "#aab1c4", border: "1px solid #2b3448" }}
+            style={{ background: "#16294A", color: "#A9BAD6", border: "1px solid #27406E" }}
           >
             −
           </button>
@@ -468,21 +474,21 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
             value={ep}
             onChange={(e) => setEp(parseInt(e.target.value || "0", 10))}
             className="w-16 text-center text-sm font-bold py-1 rounded-lg outline-none"
-            style={{ background: "#0c0e14", border: "1px solid #2b3448", color: ACCENT }}
+            style={{ background: "#070D1A", border: "1px solid #27406E", color: ACCENT }}
           />
           <button
             onClick={() => setEp(ep + 1)}
             className="w-7 h-7 rounded-lg text-sm font-bold"
-            style={{ background: ACCENT, color: "#1a1408" }}
+            style={{ background: ACCENT, color: "#04101F" }}
           >
             +
           </button>
           {total ? (
-            <span className="text-xs" style={{ color: "#8b93a7" }}>
+            <span className="text-xs" style={{ color: "#8DA2C0" }}>
               de {total}
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 text-xs" style={{ color: "#8b93a7" }}>
+            <span className="flex items-center gap-1.5 text-xs" style={{ color: "#8DA2C0" }}>
               de
               <input
                 type="number"
@@ -491,7 +497,7 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
                 value={item.totalEp || ""}
                 onChange={(e) => onUpdate({ totalEp: parseInt(e.target.value || "0", 10) || null })}
                 className="w-16 text-center text-sm py-1 rounded-lg outline-none"
-                style={{ background: "#0c0e14", border: "1px solid #2b3448", color: "#e7eaf2" }}
+                style={{ background: "#070D1A", border: "1px solid #27406E", color: "#E8EEF8" }}
               />
               capítulos
             </span>
@@ -499,7 +505,7 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
         </div>
 
         {total && (
-          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#0c0e14" }}>
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#070D1A" }}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ width: `${pct}%`, background: done ? "#10b981" : ACCENT }}
@@ -513,12 +519,12 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
               <Dancer src={GIFS.confeti} size={24} /> ¡Serie terminada!
             </span>
           ) : total ? (
-            <span className="text-xs" style={{ color: "#aab1c4" }}>
+            <span className="text-xs" style={{ color: "#A9BAD6" }}>
               Te quedan <b style={{ color: ACCENT }}>{remaining} capítulos</b>
               {" · "}≈ <b style={{ color: ACCENT }}>{fmtTime(remaining * runtime)}</b> para terminarla ({pct}%)
             </span>
           ) : (
-            <span className="text-xs" style={{ color: "#7c8398" }}>
+            <span className="text-xs" style={{ color: "#7D8BA6" }}>
               Indica el total de capítulos para calcular cuánto te queda.
             </span>
           )}
@@ -532,6 +538,79 @@ function FollowRow({ item, onUpdate, onRemove, onWatch, watched, onOpen }) {
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Modal de compartir ----------
+function ShareModal({ info, onClose }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(info.link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard bloqueado */
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(3,6,14,0.85)", backdropFilter: "blur(4px)" }}
+      onClick={onClose}
+    >
+      <div
+        className="hero-fade w-full max-w-md rounded-2xl p-6"
+        style={{ background: "#0D1729", border: "1px solid #27406E" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-3xl mb-1 tracking-wide" style={{ fontFamily: "'Bebas Neue', sans-serif", color: ACCENT }}>
+          🔗 Tu lista pública
+        </h2>
+        <p className="text-xs mb-4" style={{ color: "#8DA2C0" }}>
+          Cualquiera con este enlace verá tus {info.count} títulos puntuados, con tus imprescindibles (9-10) destacados.
+          Se actualiza cada vez que pulsas Compartir.
+        </p>
+        <div
+          className="flex items-center gap-2 rounded-lg px-3 py-2.5 mb-3"
+          style={{ background: "#070D1A", border: "1px solid #27406E" }}
+        >
+          <span className="text-xs truncate flex-1" style={{ color: "#A9BAD6" }}>
+            {info.link}
+          </span>
+          <button
+            onClick={copy}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
+            style={{ background: copied ? "#134e3a" : ACCENT, color: copied ? "#6ee7b7" : "#04101F" }}
+          >
+            {copied ? "✓ Copiado" : "Copiar"}
+          </button>
+        </div>
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent("Mira mi watchlist de pelis y series 🍿 " + info.link)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-sm font-semibold py-2.5 rounded-lg mb-2"
+          style={{ background: "#128C7E", color: "#fff" }}
+        >
+          💬 Compartir por WhatsApp
+        </a>
+        <button
+          onClick={onClose}
+          className="w-full text-sm font-semibold py-2.5 rounded-lg"
+          style={{ background: "#16294A", color: "#A9BAD6" }}
+        >
+          Cerrar
+        </button>
       </div>
     </div>
   );
@@ -565,6 +644,18 @@ export default function App() {
     }
   });
   const [notifOpen, setNotifOpen] = useState(false);
+  const [todayOpen, setTodayOpen] = useState(false);
+  const [recsOpen, setRecsOpen] = useState(false);
+  const [shareInfo, setShareInfo] = useState(null);
+  const [listDuration, setListDuration] = useState(null);
+  const [listPlatform, setListPlatform] = useState(null);
+  const [route, setRoute] = useState(window.location.hash);
+
+  useEffect(() => {
+    const onHash = () => setRoute(window.location.hash);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   // Sesión de Supabase (si está configurado)
   useEffect(() => {
@@ -780,7 +871,7 @@ export default function App() {
       persistAll(saved, watched, next, reviews);
       return;
     }
-    const next = [...following, { ...item, ep: 0 }];
+    const next = [...following, { ...item, ep: 0, updatedAt: Date.now() }];
     setFollowing(next);
     persistAll(saved, watched, next, reviews);
     // Si viene del buscador y no trae nº de capítulos, complétalo de TMDB
@@ -799,7 +890,7 @@ export default function App() {
 
   const updateFollow = (item, patch) => {
     const id = itemId(item);
-    const next = following.map((f) => (itemId(f) === id ? { ...f, ...patch } : f));
+    const next = following.map((f) => (itemId(f) === id ? { ...f, ...patch, updatedAt: Date.now() } : f));
     setFollowing(next);
     persistAll(saved, watched, next, reviews);
   };
@@ -818,17 +909,55 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
+  const shareList = async () => {
+    if (!session?.user) return;
+    try {
+      const all = [...watched, ...saved, ...following];
+      const items = Object.entries(reviews)
+        .filter(([, r]) => r.rating)
+        .map(([id, r]) => {
+          const src = all.find((it) => itemId(it) === id);
+          return {
+            title: r.title,
+            year: r.year || "",
+            rating: r.rating,
+            note: r.note || null,
+            poster: src?.poster || null,
+            genre: src?.genre || "",
+            cat: src?.cat || "",
+          };
+        });
+      const name = session.user.email.split("@")[0];
+      await publishProfile(session.user.id, name, items);
+      const link = `${window.location.origin}${window.location.pathname}#/u/${session.user.id}`;
+      setShareInfo({ link, count: items.length });
+    } catch (e) {
+      setSyncError("No se pudo publicar tu lista: " + (e.message || e));
+    }
+  };
+
   const pendingSaved = saved.filter((s) => !watchedIds.has(itemId(s)));
+  const listFacts = useFacts(pendingSaved, tab === "list");
 
   const filteredSaved = pendingSaved.filter((s) => {
     if (listCat !== "all" && s.cat !== listCat) return false;
     if (listGenre && s.genre !== listGenre) return false;
+    if (listDuration) {
+      const dur = effectiveDuration(s, listFacts[factKey(s)]);
+      if (!dur || dur > listDuration) return false;
+    }
+    if (listPlatform) {
+      const provs = listFacts[factKey(s)]?.providers || [];
+      if (!provs.includes(listPlatform)) return false;
+    }
     return true;
   });
+  const listPlatforms = [...new Set(pendingSaved.flatMap((s) => listFacts[factKey(s)]?.providers || []))].sort().slice(0, 10);
   const listGenres = [...new Set(pendingSaved.map((s) => s.genre).filter(Boolean))].sort();
 
   const TABS = [
     ...CATS,
+    { key: "hot", label: "Hot", emoji: "🔥" },
     { key: "following", label: `Siguiendo (${following.length})`, emoji: "📌" },
     { key: "list", label: `Mi Lista (${pendingSaved.length})`, emoji: "🔖" },
     { key: "seen", label: `Vistas (${watched.length})`, emoji: "✅" },
@@ -862,6 +991,18 @@ export default function App() {
   const catData = trends[tab];
   const searchActive = query.trim().length >= 2;
 
+  const sharedMatch = route.match(/^#\/u\/(.+)$/);
+  if (sharedMatch) {
+    return (
+      <SharedProfile
+        userId={sharedMatch[1]}
+        onExit={() => {
+          window.location.hash = "";
+        }}
+      />
+    );
+  }
+
   const filterChip = (active, label, onClick) => (
     <button
       key={label}
@@ -869,8 +1010,8 @@ export default function App() {
       className="text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
       style={
         active
-          ? { background: ACCENT, color: "#1a1408" }
-          : { background: "#151a26", color: "#aab1c4", border: "1px solid #232b3d" }
+          ? { background: ACCENT, color: "#04101F" }
+          : { background: "#0F1B33", color: "#A9BAD6", border: "1px solid #1D3157" }
       }
     >
       {label}
@@ -878,20 +1019,28 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#0c0e14", color: "#e7eaf2", fontFamily: "system-ui, sans-serif" }}>
+    <div className="min-h-screen flex flex-col" style={{ background: "#070D1A", color: "#E8EEF8", fontFamily: "system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Pacifico&display=swap');
         @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
         .marquee-dot { width:6px; height:6px; border-radius:50%; background:${ACCENT}; opacity:.35; }
         .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes heroFade { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
-        @keyframes heroBadgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,194,75,0.5); } 50% { box-shadow: 0 0 0 8px rgba(255,194,75,0); } }
+        @keyframes heroBadgePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(77,166,255,0.5); } 50% { box-shadow: 0 0 0 8px rgba(77,166,255,0); } }
         @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
         .hero-fade { animation: heroFade 0.7s ease-out; }
         .hero-badge { animation: heroBadgePulse 2.2s ease-out infinite; }
         .bob { animation: bob 2.4s ease-in-out infinite; }
         .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type=number] { -moz-appearance: textfield; }`}</style>
+        input[type=number] { -moz-appearance: textfield; }
+        @keyframes giftShake { 0%,100%{transform:rotate(0) scale(1);} 20%{transform:rotate(-8deg) scale(1.05);} 40%{transform:rotate(8deg) scale(1.1);} 60%{transform:rotate(-10deg) scale(1.15);} 80%{transform:rotate(10deg) scale(1.2);} }
+        @keyframes giftBurst { 0%{transform:scale(1.2); opacity:1; filter:brightness(1.2);} 70%{transform:scale(1.9); opacity:0.9; filter:brightness(2.4);} 100%{transform:scale(2.6); opacity:0; filter:brightness(3.5);} }
+        @keyframes revealIn { from{opacity:0; transform:scale(0.9) translateY(18px);} to{opacity:1; transform:scale(1) translateY(0);} }
+        .gift-idle { animation: bob 2s ease-in-out infinite; transition: transform 0.2s; }
+        .gift-idle:hover { transform: scale(1.08); }
+        .gift-opening { animation: giftShake 0.45s ease-in-out 2, giftBurst 0.7s ease-in 0.9s forwards; }
+        .gift-reveal { animation: revealIn 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
+        .gift-flash { animation: heroFade 0.4s ease-out; }`}</style>
 
       {/* Cabecera */}
       <header className="px-5 pt-6 pb-4 max-w-7xl mx-auto w-full">
@@ -904,7 +1053,7 @@ export default function App() {
           <div className="flex items-end gap-3">
             <div>
               <Logo />
-              <p className="text-sm" style={{ color: "#8b93a7" }}>
+              <p className="text-sm" style={{ color: "#8DA2C0" }}>
                 Tu próxima peli, serie o anime · {saved.length} guardadas · {watched.length} vistas
               </p>
             </div>
@@ -919,7 +1068,7 @@ export default function App() {
                 onClick={() => setNotifOpen((o) => !o)}
                 title="Nuevos episodios de tus series"
                 className="relative text-lg px-3 py-1.5 rounded-full"
-                style={{ background: "#151a26", border: "1px solid #232b3d" }}
+                style={{ background: "#0F1B33", border: "1px solid #1D3157" }}
               >
                 🔔
                 {notifs.length > 0 && (
@@ -934,29 +1083,29 @@ export default function App() {
               {notifOpen && (
                 <div
                   className="absolute right-0 top-12 w-80 max-w-[90vw] rounded-xl p-3 z-40 flex flex-col gap-2"
-                  style={{ background: "#12161f", border: "1px solid #2b3448", boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}
+                  style={{ background: "#0D1729", border: "1px solid #27406E", boxShadow: "0 20px 50px rgba(0,0,0,0.6)" }}
                 >
-                  <p className="text-xs font-semibold px-1" style={{ color: "#8b93a7" }}>
+                  <p className="text-xs font-semibold px-1" style={{ color: "#8DA2C0" }}>
                     NUEVOS EPISODIOS
                   </p>
                   {notifs.length === 0 ? (
-                    <p className="text-xs px-1 py-3" style={{ color: "#7c8398" }}>
+                    <p className="text-xs px-1 py-3" style={{ color: "#7D8BA6" }}>
                       Nada nuevo por ahora. Cuando alguna serie que sigues estrene un episodio, te avisaré aquí. 🍿
                     </p>
                   ) : (
                     <>
                       {notifs.map((n) => (
-                        <div key={n.id} className="flex gap-2.5 items-center rounded-lg p-2" style={{ background: "#151a26" }}>
+                        <div key={n.id} className="flex gap-2.5 items-center rounded-lg p-2" style={{ background: "#0F1B33" }}>
                           {n.poster && <img src={n.poster} alt="" className="w-9 h-13 rounded object-cover" style={{ height: 52 }} />}
                           <div className="min-w-0">
-                            <p className="text-sm font-semibold truncate" style={{ color: "#e7eaf2" }}>
+                            <p className="text-sm font-semibold truncate" style={{ color: "#E8EEF8" }}>
                               {n.title}
                             </p>
                             <p className="text-xs" style={{ color: ACCENT }}>
                               ¡{n.newCount} episodio{n.newCount > 1 ? "s" : ""} nuevo{n.newCount > 1 ? "s" : ""}!
                             </p>
                             {n.lastLabel && (
-                              <p className="text-xs truncate" style={{ color: "#8b93a7" }}>
+                              <p className="text-xs truncate" style={{ color: "#8DA2C0" }}>
                                 {n.lastLabel}
                                 {n.airDate ? ` · ${new Date(n.airDate).toLocaleDateString("es-ES")}` : ""}
                               </p>
@@ -967,7 +1116,7 @@ export default function App() {
                       <button
                         onClick={clearNotifs}
                         className="text-xs font-semibold py-2 rounded-lg"
-                        style={{ background: "#1c2333", color: "#aab1c4" }}
+                        style={{ background: "#16294A", color: "#A9BAD6" }}
                       >
                         Marcar todo como leído
                       </button>
@@ -982,14 +1131,22 @@ export default function App() {
                 <>
                   <span
                     className="text-xs px-3 py-1.5 rounded-full hidden sm:inline"
-                    style={{ background: "#151a26", color: "#aab1c4", border: "1px solid #232b3d" }}
+                    style={{ background: "#0F1B33", color: "#A9BAD6", border: "1px solid #1D3157" }}
                   >
                     👤 {session.user.email}
                   </span>
                   <button
+                    onClick={shareList}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ background: "transparent", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }}
+                    title="Genera un enlace público con tus mejores notas"
+                  >
+                    🔗 Compartir
+                  </button>
+                  <button
                     onClick={logout}
                     className="text-xs font-semibold px-3 py-1.5 rounded-full"
-                    style={{ background: "transparent", color: "#9aa3b8", border: "1px solid #2b3448" }}
+                    style={{ background: "transparent", color: "#98A8C4", border: "1px solid #27406E" }}
                   >
                     Salir
                   </button>
@@ -1011,7 +1168,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto w-full px-5 mb-4">
         <div
           className="flex items-center gap-3 rounded-full px-5 py-3"
-          style={{ background: "#151a26", border: `1px solid ${searchActive ? ACCENT_DIM : "#232b3d"}` }}
+          style={{ background: "#0F1B33", border: `1px solid ${searchActive ? ACCENT_DIM : "#1D3157"}` }}
         >
           <span className="text-lg">🔍</span>
           <input
@@ -1019,11 +1176,11 @@ export default function App() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Busca cualquier película, serie o anime y añádela con un clic…"
             className="flex-1 bg-transparent outline-none text-sm"
-            style={{ color: "#e7eaf2" }}
+            style={{ color: "#E8EEF8" }}
           />
           {searching && <span className="spin text-sm">🎞️</span>}
           {query && (
-            <button onClick={() => setQuery("")} className="text-sm" style={{ color: "#7c8398" }}>
+            <button onClick={() => setQuery("")} className="text-sm" style={{ color: "#7D8BA6" }}>
               ✕
             </button>
           )}
@@ -1040,13 +1197,29 @@ export default function App() {
               className="text-sm font-semibold px-4 py-2 rounded-full transition-colors"
               style={
                 tab === t.key
-                  ? { background: ACCENT, color: "#1a1408" }
-                  : { background: "#151a26", color: "#aab1c4", border: "1px solid #232b3d" }
+                  ? { background: ACCENT, color: "#04101F" }
+                  : { background: "#0F1B33", color: "#A9BAD6", border: "1px solid #1D3157" }
               }
             >
               {t.emoji} {t.label}
             </button>
           ))}
+          <div className="sm:ml-auto flex gap-2">
+            <button
+              onClick={() => setTodayOpen(true)}
+              className="text-sm font-semibold px-4 py-2 rounded-full"
+              style={{ background: "rgba(77,166,255,0.12)", color: ACCENT, border: `1px solid ${ACCENT_DIM}` }}
+            >
+              🎬 ¿Qué toca hoy?
+            </button>
+            <button
+              onClick={() => setRecsOpen(true)}
+              className="text-sm font-semibold px-4 py-2 rounded-full"
+              style={{ background: "rgba(167,139,250,0.12)", color: "#A78BFA", border: "1px solid #4C3B8A" }}
+            >
+              🎯 Recomiéndame algo
+            </button>
+          </div>
         </nav>
       )}
 
@@ -1060,11 +1233,11 @@ export default function App() {
         {/* Resultados de búsqueda */}
         {searchActive && (
           <>
-            <p className="text-sm mb-4" style={{ color: "#8b93a7" }}>
-              Resultados para <b style={{ color: "#e7eaf2" }}>«{query.trim()}»</b> — guarda 🔖, marca vista ✓ o sigue 📌 con un clic.
+            <p className="text-sm mb-4" style={{ color: "#8DA2C0" }}>
+              Resultados para <b style={{ color: "#E8EEF8" }}>«{query.trim()}»</b> — guarda 🔖, marca vista ✓ o sigue 📌 con un clic.
             </p>
             {searchResults === null || searching ? (
-              <div className="flex flex-col items-center gap-3 py-10" style={{ color: "#8b93a7" }}>
+              <div className="flex flex-col items-center gap-3 py-10" style={{ color: "#8DA2C0" }}>
                 <Dancer src={GIFS.palomitas} size={60} className="bob" />
                 Buscando…
               </div>
@@ -1080,7 +1253,7 @@ export default function App() {
         {!searchActive && isCatTab && (
           <>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <p className="text-xs" style={{ color: "#7c8398" }}>
+              <p className="text-xs" style={{ color: "#7D8BA6" }}>
                 {catData?.ts
                   ? `${catData.items?.length || 0} títulos · Última actualización: ${timeAgo(catData.ts)}`
                   : "Sin datos todavía"}
@@ -1089,14 +1262,14 @@ export default function App() {
                 onClick={() => refresh(tab)}
                 disabled={!!loading[tab]}
                 className="text-sm font-semibold px-4 py-2 rounded-lg"
-                style={{ background: loading[tab] ? "#3a3122" : ACCENT, color: "#1a1408" }}
+                style={{ background: loading[tab] ? "#1D3252" : ACCENT, color: "#04101F" }}
               >
                 {loading[tab] ? "Buscando tendencias…" : "🔄 Actualizar"}
               </button>
             </div>
 
             {loading[tab] && (
-              <div className="flex flex-col items-center gap-3 py-10 justify-center" style={{ color: "#8b93a7" }}>
+              <div className="flex flex-col items-center gap-3 py-10 justify-center" style={{ color: "#8DA2C0" }}>
                 <Dancer src={GIFS.palomitas} size={70} className="bob" />
                 Consultando lo más popular ahora mismo…
               </div>
@@ -1126,17 +1299,22 @@ export default function App() {
           </>
         )}
 
+        {/* La Sección Hot */}
+        {!searchActive && tab === "hot" && (
+          <HotTab saved={savedIds} watched={watchedIds} onSave={toggleSave} onWatch={toggleWatch} onOpen={setDetailItem} />
+        )}
+
         {/* Siguiendo */}
         {!searchActive &&
           tab === "following" &&
           (following.length === 0 ? (
             <EmptyState gif={GIFS.fiesta}>
-              No sigues ninguna serie todavía. Pulsa <b style={{ color: "#93c5fd" }}>📌</b> en cualquier serie o anime
+              No sigues ninguna serie todavía. Pulsa <b style={{ color: "#67E8F9" }}>📌</b> en cualquier serie o anime
               para llevar la cuenta de por qué capítulo vas y saber cuánto te queda para terminarla.
             </EmptyState>
           ) : (
             <div className="flex flex-col gap-4 max-w-3xl">
-              {following.map((f) => {
+              {[...following].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map((f) => {
                 const id = itemId(f);
                 return (
                   <FollowRow
@@ -1159,7 +1337,7 @@ export default function App() {
             {pendingSaved.length > 0 && (
               <div className="flex flex-col gap-2 mb-5">
                 <div className="flex gap-2 flex-wrap items-center">
-                  <span className="text-xs font-semibold" style={{ color: "#7c8398" }}>
+                  <span className="text-xs font-semibold" style={{ color: "#7D8BA6" }}>
                     CATEGORÍA:
                   </span>
                   {filterChip(listCat === "all", "Todas", () => setListCat("all"))}
@@ -1167,7 +1345,7 @@ export default function App() {
                 </div>
                 {listGenres.length > 0 && (
                   <div className="flex gap-2 flex-wrap items-center">
-                    <span className="text-xs font-semibold" style={{ color: "#7c8398" }}>
+                    <span className="text-xs font-semibold" style={{ color: "#7D8BA6" }}>
                       TEMÁTICA:
                     </span>
                     {filterChip(listGenre === null, "Todas", () => setListGenre(null))}
@@ -1181,13 +1359,33 @@ export default function App() {
                           style={
                             listGenre === g
                               ? { background: gs.text, color: gs.bg }
-                              : { background: gs.bg, color: gs.text, border: "1px solid #232b3d" }
+                              : { background: gs.bg, color: gs.text, border: "1px solid #1D3157" }
                           }
                         >
                           {gs.emoji} {g}
                         </button>
                       );
                     })}
+                  </div>
+                )}
+                <div className="flex gap-2 flex-wrap items-center">
+                  <span className="text-xs font-semibold" style={{ color: "#7D8BA6" }}>
+                    ⏱️ TIEMPO (por capítulo o película):
+                  </span>
+                  {filterChip(listDuration === null, "Cualquiera", () => setListDuration(null))}
+                  {filterChip(listDuration === 25, "≤ 25 min", () => setListDuration(listDuration === 25 ? null : 25))}
+                  {filterChip(listDuration === 45, "≤ 45 min", () => setListDuration(listDuration === 45 ? null : 45))}
+                  {filterChip(listDuration === 120, "≤ 2 h", () => setListDuration(listDuration === 120 ? null : 120))}
+                </div>
+                {listPlatforms.length > 0 && (
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <span className="text-xs font-semibold" style={{ color: "#7D8BA6" }}>
+                      📡 PLATAFORMA:
+                    </span>
+                    {filterChip(listPlatform === null, "Todas", () => setListPlatform(null))}
+                    {listPlatforms.map((p) =>
+                      filterChip(listPlatform === p, p, () => setListPlatform(listPlatform === p ? null : p))
+                    )}
                   </div>
                 )}
               </div>
@@ -1221,7 +1419,7 @@ export default function App() {
       </main>
 
       {/* Pie con bailarines */}
-      <footer className="py-6 flex flex-col items-center gap-2" style={{ borderTop: "1px solid #171c29" }}>
+      <footer className="py-6 flex flex-col items-center gap-2" style={{ borderTop: "1px solid #12213E" }}>
         <div className="flex items-end gap-4">
           <Dancer src={GIFS.fantasma} size={34} className="bob" />
           <Dancer src={GIFS.bailaora} size={40} className="bob" style={{ animationDelay: "0.3s" }} />
@@ -1229,7 +1427,7 @@ export default function App() {
           <Dancer src={GIFS.robot} size={40} className="bob" style={{ animationDelay: "0.9s" }} />
           <Dancer src={GIFS.pinguino} size={34} className="bob" style={{ animationDelay: "1.2s" }} />
         </div>
-        <p className="text-xs" style={{ color: "#4b5266" }}>
+        <p className="text-xs" style={{ color: "#4D5A75" }}>
           WatchNext · Hecho con 🍿 · Datos de TMDB
         </p>
       </footer>
@@ -1252,6 +1450,33 @@ export default function App() {
 
       {/* Modal de login */}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+
+      {/* ¿Qué toca ver hoy? */}
+      {todayOpen && (
+        <TodayModal
+          following={following}
+          onPlusOne={(f) => updateFollow(f, { ep: (f.ep || 0) + 1 })}
+          onOpen={(it) => setDetailItem(it)}
+          onClose={() => setTodayOpen(false)}
+        />
+      )}
+
+      {/* Recomendaciones */}
+      {recsOpen && (
+        <RecsModal
+          watched={watched}
+          following={following}
+          saved={saved}
+          reviews={reviews}
+          savedIds={savedIds}
+          onSave={toggleSave}
+          onOpen={setDetailItem}
+          onClose={() => setRecsOpen(false)}
+        />
+      )}
+
+      {/* Compartir lista */}
+      {shareInfo && <ShareModal info={shareInfo} onClose={() => setShareInfo(null)} />}
     </div>
   );
 }
