@@ -4,6 +4,8 @@
 // - Series: trending semanal
 // - Anime: discover de series de animación japonesas ordenadas por popularidad
 
+import { assertTmdbTarget } from "./security.js";
+
 const TMDB = "https://api.themoviedb.org/3";
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 const PAGES = [1, 2, 3];
@@ -34,7 +36,8 @@ export function genreName(kind, genreId) {
 // Datos rápidos de una serie (para completar items que vienen del buscador)
 export async function fetchTvFacts(tmdbId) {
   const apiKey = getTmdbKey();
-  const r = await fetch(`${TMDB}/tv/${tmdbId}?api_key=${apiKey}&language=es-ES`);
+  assertTmdbTarget("tv", tmdbId);
+  const r = await fetch(`${TMDB}/tv/${Number(tmdbId)}?api_key=${apiKey}&language=es-ES`);
   if (!r.ok) throw new Error(`Error de TMDB (${r.status})`);
   const d = await r.json();
   return {

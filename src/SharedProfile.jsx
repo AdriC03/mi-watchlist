@@ -85,11 +85,8 @@ export default function SharedProfile({ userId, onExit }) {
       .catch(() => setProfile(null));
   }, [userId]);
 
-  // Compatibilidad: instantáneas antiguas eran un array plano de items
-  const raw = profile?.items;
-  const list = Array.isArray(raw) ? raw : raw?.list || [];
-  const stats = Array.isArray(raw) ? null : raw?.stats || null;
-  const medals = Array.isArray(raw) ? [] : raw?.medals || [];
+  // loadPublicProfile ya normaliza y sanea la instantánea a {list, stats, medals}
+  const { list = [], stats = null, medals = [] } = profile?.items || {};
   const unlockedMedals = medals.filter((m) => m.unlocked);
   const lockedMedals = medals.filter((m) => !m.unlocked);
 

@@ -84,4 +84,9 @@ El repositorio incluye un workflow de GitHub Actions (`.github/workflows/deploy.
 
 Para que todo funcione también en la web publicada, añade estos secretos del repositorio (**Settings → Secrets and variables → Actions**): `VITE_TMDB_API_KEY`, y si activaste el login, `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
 
-<!-- redeploy trigger -->
+## Seguridad
+
+- **Content Security Policy** (`vite.config.js`): la build inyecta una CSP que restringe scripts, estilos, imágenes y conexiones a orígenes de confianza (TMDB, Google Fonts, Supabase), mitigando XSS e inyección de recursos de terceros. Junto con `Referrer-Policy: strict-origin-when-cross-origin`.
+- **Validación y saneado** (`src/security.js`): todo identificador de TMDB (`kind`/`tmdbId`) se valida antes de interpolarse en una URL; el perfil público que un usuario publica y otros ven se sanea (tamaños acotados, notas limitadas y URLs de imagen restringidas a hosts de confianza) tanto al publicar como al cargar, para que nadie pueda inyectar un rastreador en un enlace compartido.
+- **Row Level Security en Supabase**: cada usuario solo puede leer/escribir su propia fila de `watchlists`; `public_profiles` es de lectura pública pero solo su dueño puede escribir en ella.
+- **Claves públicas por diseño**: la `anon key` de Supabase (protegida por RLS) y la API key de solo lectura de TMDB viven en el cliente, como corresponde a una app estática sin backend.

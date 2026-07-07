@@ -1,18 +1,19 @@
 // Comprueba si las series que sigues tienen episodios nuevos desde la última vez.
 // Compara el nº total de episodios actual de TMDB con el que la app tenía guardado.
 import { getTmdbKey } from "./trending.js";
+import { isValidTmdbId } from "./security.js";
 
 const TMDB = "https://api.themoviedb.org/3";
 
 export async function checkNewEpisodes(following) {
   const apiKey = getTmdbKey();
-  const tvItems = following.filter((f) => f.kind === "tv" && f.tmdbId);
+  const tvItems = following.filter((f) => f.kind === "tv" && isValidTmdbId(f.tmdbId));
   if (!apiKey || tvItems.length === 0) return { notifications: [], updates: [] };
 
   const results = await Promise.all(
     tvItems.map(async (f) => {
       try {
-        const r = await fetch(`${TMDB}/tv/${f.tmdbId}?api_key=${apiKey}&language=es-ES`);
+        const r = await fetch(`${TMDB}/tv/${Number(f.tmdbId)}?api_key=${apiKey}&language=es-ES`);
         if (!r.ok) return null;
         const d = await r.json();
         const nowEpisodes = d.number_of_episodes || 0;

@@ -2,6 +2,7 @@
 // Mezcla recomendaciones basadas en tus gustos (mejores notas / últimos vistos)
 // con tendencias que aún no tienes en ninguna lista.
 import { getTmdbKey, genreName } from "./trending.js";
+import { isValidKind, isValidTmdbId } from "./security.js";
 
 const TMDB = "https://api.themoviedb.org/3";
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -69,8 +70,9 @@ export async function buildSwipePool({ watched, following, saved, reviews, trend
     await Promise.all(
       seeds.map(async (seed) => {
         try {
+          if (!isValidKind(seed.kind) || !isValidTmdbId(seed.tmdbId)) return;
           const r = await fetch(
-            `${TMDB}/${seed.kind}/${seed.tmdbId}/recommendations?api_key=${apiKey}&language=es-ES&page=1`
+            `${TMDB}/${seed.kind}/${Number(seed.tmdbId)}/recommendations?api_key=${apiKey}&language=es-ES&page=1`
           );
           if (!r.ok) return;
           const data = await r.json();

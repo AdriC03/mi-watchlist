@@ -2,6 +2,7 @@
 // con caché de sesión para no repetir peticiones a TMDB.
 import { useState, useEffect } from "react";
 import { getTmdbKey } from "./trending.js";
+import { isValidKind, isValidTmdbId } from "./security.js";
 
 const TMDB = "https://api.themoviedb.org/3";
 
@@ -13,9 +14,10 @@ export async function fetchFacts(item) {
   const key = factKey(item);
   if (cache.has(key)) return cache.get(key);
   const apiKey = getTmdbKey();
+  if (!apiKey || !isValidKind(item.kind) || !isValidTmdbId(item.tmdbId)) return {};
   try {
     const r = await fetch(
-      `${TMDB}/${item.kind}/${item.tmdbId}?api_key=${apiKey}&language=es-ES&append_to_response=credits,watch/providers`
+      `${TMDB}/${item.kind}/${Number(item.tmdbId)}?api_key=${apiKey}&language=es-ES&append_to_response=credits,watch/providers`
     );
     if (!r.ok) throw new Error();
     const d = await r.json();

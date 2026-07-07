@@ -230,10 +230,11 @@ export default function DetailModal({ item, saved, watched, followed, review, on
               <StarRating value={review?.rating || null} onChange={(rating) => onReview({ rating })} />
               <textarea
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
-                onBlur={() => onReview({ note: note.trim() || null })}
+                onChange={(e) => setNote(e.target.value.slice(0, 500))}
+                onBlur={() => onReview({ note: note.trim().slice(0, 500) || null })}
                 placeholder="Escribe tu comentario… (se guarda solo)"
                 rows={2}
+                maxLength={500}
                 className="w-full mt-3 text-sm px-3 py-2 rounded-lg outline-none resize-y"
                 style={{ background: "#070D1A", border: "1px solid #27406E", color: "#E8EEF8" }}
               />

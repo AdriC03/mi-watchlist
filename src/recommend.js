@@ -1,6 +1,7 @@
 // "Recomiéndame algo": mira tus títulos mejor puntuados (o los últimos vistos si
 // aún no puntúas) y pide a TMDB títulos similares, excluyendo lo que ya tienes.
 import { getTmdbKey, genreName } from "./trending.js";
+import { isValidKind, isValidTmdbId } from "./security.js";
 
 const TMDB = "https://api.themoviedb.org/3";
 const TMDB_IMG = "https://image.tmdb.org/t/p";
@@ -50,8 +51,9 @@ export async function getRecommendations({ watched, following, saved, reviews })
 
   await Promise.all(
     seeds.map(async (seed) => {
+      if (!isValidKind(seed.kind) || !isValidTmdbId(seed.tmdbId)) return;
       const r = await fetch(
-        `${TMDB}/${seed.kind}/${seed.tmdbId}/recommendations?api_key=${apiKey}&language=es-ES&page=1`
+        `${TMDB}/${seed.kind}/${Number(seed.tmdbId)}/recommendations?api_key=${apiKey}&language=es-ES&page=1`
       );
       if (!r.ok) return;
       const data = await r.json();
@@ -79,7 +81,8 @@ export async function getRecommendations({ watched, following, saved, reviews })
   await Promise.all(
     recs.map(async (rec) => {
       try {
-        const r = await fetch(`${TMDB}/${rec.kind}/${rec.tmdbId}/watch/providers?api_key=${apiKey}`);
+        if (!isValidKind(rec.kind) || !isValidTmdbId(rec.tmdbId)) return;
+        const r = await fetch(`${TMDB}/${rec.kind}/${Number(rec.tmdbId)}/watch/providers?api_key=${apiKey}`);
         if (!r.ok) return;
         const data = await r.json();
         rec.providers = (data.results?.ES?.flatrate || []).slice(0, 4).map((p) => ({

@@ -1,6 +1,7 @@
 // Cliente de Supabase para el login y las listas por usuario.
 // Si las claves no están configuradas, la app funciona en modo invitado (localStorage).
 import { createClient } from "@supabase/supabase-js";
+import { sanitizePublicSnapshot, safeText, isUuid } from "./security.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -69,10 +70,13 @@ export async function saveCloudLists(userId, saved, watched, following, reviews)
 // ---------- Perfil público (modo "compartir lista") ----------
 // Publica una instantánea de tus títulos puntuados en una tabla de lectura
 // pública, para compartir con un enlace. Requiere la tabla public_profiles.
-export async function publishProfile(userId, name, items) {
+export async function publishProfile(userId, name, snapshot) {
+  // Sanea la instantánea antes de guardarla: recorta tamaños, valida notas
+  // y descarta URLs de imagen que no sean de un host de confianza.
+  const clean = sanitizePublicSnapshot(snapshot);
   const { error } = await supabase
     .from("public_profiles")
-    .upsert({ user_id: userId, name, items, updated_at: new Date().toISOString() });
+    .upsert({ user_id: userId, name: safeText(name, 60), items: clean, updated_at: new Date().toISOString() });
   if (error) {
     if (/public_profiles/.test(error.message || "") && /find|exist|schema/i.test(error.message || "")) {
       throw new Error(
@@ -84,11 +88,17 @@ export async function publishProfile(userId, name, items) {
 }
 
 export async function loadPublicProfile(userId) {
+  if (!isUuid(userId)) return null; // id de la URL con formato inesperado
   const { data, error } = await supabase
     .from("public_profiles")
     .select("name, items, updated_at")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  // Defensa para quien visualiza: limpia la instantánea también al cargarla,
+  // no solo al publicarla (por si el registro se creó con una versión previa).
+  const raw = data.items;
+  const normalized = Array.isArray(raw) ? { list: raw } : raw;
+  return { name: safeText(data.name, 60), items: sanitizePublicSnapshot(normalized), updated_at: data.updated_at };
 }

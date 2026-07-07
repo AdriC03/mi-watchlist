@@ -5,6 +5,7 @@ const TMDB = "https://api.themoviedb.org/3";
 const TMDB_IMG = "https://image.tmdb.org/t/p";
 
 import { getTmdbKey } from "./trending.js";
+import { assertTmdbTarget } from "./security.js";
 
 function pickTrailer(videos) {
   const list = videos?.results || [];
@@ -19,8 +20,9 @@ function pickTrailer(videos) {
 export async function fetchDetails(kind, tmdbId) {
   const apiKey = getTmdbKey();
   if (!apiKey) throw new Error("Falta configurar VITE_TMDB_API_KEY");
+  const id = assertTmdbTarget(kind, tmdbId);
 
-  const url = `${TMDB}/${kind}/${tmdbId}?api_key=${apiKey}&language=es-ES&append_to_response=credits,videos,watch/providers`;
+  const url = `${TMDB}/${kind}/${id}?api_key=${apiKey}&language=es-ES&append_to_response=credits,videos,watch/providers`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Error de TMDB (${response.status})`);
   const d = await response.json();
@@ -28,7 +30,7 @@ export async function fetchDetails(kind, tmdbId) {
   // Si TMDB no tiene sinopsis en español para este título, usa la versión en inglés
   let overview = d.overview;
   if (!overview) {
-    const en = await fetch(`${TMDB}/${kind}/${tmdbId}?api_key=${apiKey}&language=en-US`);
+    const en = await fetch(`${TMDB}/${kind}/${id}?api_key=${apiKey}&language=en-US`);
     if (en.ok) overview = (await en.json()).overview || "";
   }
 
