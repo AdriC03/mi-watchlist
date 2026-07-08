@@ -7,6 +7,7 @@ import DetailModal from "./DetailModal.jsx";
 import AuthModal from "./AuthModal.jsx";
 import StatsTab from "./StatsTab.jsx";
 import HotTab from "./HotTab.jsx";
+import HorrorTab from "./HorrorTab.jsx";
 import TodayModal from "./TodayModal.jsx";
 import RecsModal from "./RecsModal.jsx";
 import SwipeModal from "./SwipeModal.jsx";
@@ -982,6 +983,7 @@ export default function App() {
   const TABS = [
     ...CATS,
     { key: "hot", label: "Hot", emoji: "🔥" },
+    { key: "horror", label: "La Cripta", emoji: "🔪" },
     { key: "following", label: `Siguiendo (${following.length})`, emoji: "📌" },
     { key: "list", label: `Mi Lista (${pendingSaved.length})`, emoji: "🔖" },
     { key: "seen", label: `Vistas (${watched.length})`, emoji: "✅" },
@@ -1343,6 +1345,11 @@ export default function App() {
         {/* La Sección Hot */}
         {!searchActive && tab === "hot" && (
           <HotTab saved={savedIds} watched={watchedIds} onSave={toggleSave} onWatch={toggleWatch} onOpen={setDetailItem} />
+        )}
+
+        {/* La Cripta (terror con criterio crítico) */}
+        {!searchActive && tab === "horror" && (
+          <HorrorTab saved={savedIds} watched={watchedIds} onSave={toggleSave} onWatch={toggleWatch} onOpen={setDetailItem} />
         )}
 
         {/* Siguiendo */}
