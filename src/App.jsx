@@ -1066,7 +1066,12 @@ export default function App() {
         .gift-idle:hover { transform: scale(1.08); }
         .gift-opening { animation: giftShake 0.45s ease-in-out 2, giftBurst 0.7s ease-in 0.9s forwards; }
         .gift-reveal { animation: revealIn 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.25); }
-        .gift-flash { animation: heroFade 0.4s ease-out; }`}</style>
+        .gift-flash { animation: heroFade 0.4s ease-out; }
+        @keyframes cryptPulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.65; } }
+        .crypt-glow { background: radial-gradient(ellipse at 50% 80%, rgba(225,29,42,0.22), transparent 60%); animation: cryptPulse 3.2s ease-in-out infinite; }
+        .crypt-enter { animation: heroFade 0.8s ease-out; }
+        .crypt-button { transition: transform 0.2s, box-shadow 0.2s; }
+        .crypt-button:hover { transform: scale(1.06); box-shadow: 0 0 45px rgba(225,29,42,0.8) !important; }`}</style>
 
       {/* Cabecera */}
       <header className="px-5 pt-6 pb-4 max-w-7xl mx-auto w-full">
