@@ -30,7 +30,8 @@ const GOLD = "#FFC24B";
 const ACCENT_DIM = "#2A5C99";
 
 const STORAGE_LISTS = "watchlist-lists-v1";
-const STORAGE_TRENDS = "watchlist-trends-v3";
+// v4: invalida cachés que aún tenían anime adulto sin filtrar
+const STORAGE_TRENDS = "watchlist-trends-v4";
 const STORAGE_NOTIFS = "watchnext-notifs-v1";
 
 // GIFs animados (emoji animados de Google, CDN estable)

@@ -87,7 +87,7 @@ async function fetchTMDBPages(pathAndQuery) {
 
   const seen = new Set();
   return pages.flatMap((p) => p.results || []).filter((it) => {
-    if (seen.has(it.id)) return false;
+    if (it.adult || seen.has(it.id)) return false; // fuera contenido adulto
     seen.add(it.id);
     return true;
   });
@@ -129,8 +129,12 @@ export async function fetchTrending(catKey) {
     results = await fetchTMDBPages("/trending/tv/week?");
   } else if (catKey === "anime") {
     kind = "tv";
+    // without_keywords excluye contenido adulto que TMDB no marca con el flag
+    // "adult": hentai (198385), ecchi (195669), adult animation (161919),
+    // erotic (256466) y sex (267122)
     results = await fetchTMDBPages(
-      "/discover/tv?with_genres=16&with_origin_country=JP&sort_by=popularity.desc&vote_count.gte=20"
+      "/discover/tv?with_genres=16&with_origin_country=JP&sort_by=popularity.desc&vote_count.gte=20" +
+        "&include_adult=false&without_keywords=198385,195669,161919,256466,267122"
     );
   } else {
     throw new Error("Categoría desconocida");
